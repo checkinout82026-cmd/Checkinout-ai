@@ -2,7 +2,7 @@
 
 ## Deployed Link
 
-- URL: https://checkin-out2026.netlify.app/
+- URL: https://checkinout-ai.vercel.app/
 
 ### Demo App Credentials
 
