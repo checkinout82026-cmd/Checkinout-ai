@@ -116,7 +116,7 @@ export function Login({ onLogin }: LoginProps) {
         <div className="text-center mb-6">
           {/* Kumon Logo */}
           <img
-            src="./assets/kumon_logo.webp" // Update this path based on where you store the logo
+            src="/kumon_logo.webp" // Update this path based on where you store the logo
             alt="Kumon Dublin - East"
             className="mx-auto h-24 w-auto object-contain mb-4"
           />
