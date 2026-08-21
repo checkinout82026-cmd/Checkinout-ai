@@ -107,8 +107,20 @@ export function CheckInOut({ user }: { user: User }) {
 
       await db.saveAttendanceRecord(newRecord);
       setAttendanceToday(newRecord);
-      setLastSmsMessage(null);
-      toast.success(`${activeStudent.name} (ID: ${activeStudent.id}) checked in successfully!`);
+      const parentPhone = activeStudent.parent?.phone || activeStudent.parentPhone || 'Parent Contact';
+      const timeFormatted = format(new Date(now), 'h:mm a');
+      const smsContent = `${activeStudent.name} was checked in at Kumon at ${timeFormatted}.`;
+
+      setLastSmsMessage({
+        to: parentPhone,
+        text: smsContent,
+        time: timeFormatted
+      });
+
+      toast.success(
+        `Check-in recorded! SMS automatically sent to ${parentPhone}`, 
+        { duration: 4000, icon: '📱' }
+      );
     } catch (err) {
       console.error(err);
       toast.error('Failed to record check-in');

@@ -105,7 +105,10 @@ export function StudentDashboard({ user, onComplete }: StudentDashboardProps) {
       await db.saveAttendanceRecord(newRecord);
       setTodayRecord(newRecord);
       setStatus('checked-in');
-      toast.success(`Check-in recorded! Welcome, ${student.name}.`, { duration: 3000 });
+      toast.success(
+        `Check-in recorded! SMS automatically sent to ${student.parent?.phone || student.parentPhone || 'Parent'}`, 
+        { duration: 4000, icon: '📱' }
+      );
       triggerAutoReturn();
     } catch (err) {
       console.error(err);
@@ -153,7 +156,10 @@ export function StudentDashboard({ user, onComplete }: StudentDashboardProps) {
       await db.saveAttendanceRecord(updatedRecord);
       setTodayRecord(updatedRecord);
       setStatus('checked-out');
-      toast.success(`Check-out approved by ${authorizingStaff.name}! Goodbye, ${student.name}.`, { duration: 4000 });
+      toast.success(
+        `Check-out approved! SMS automatically sent to ${student.parent?.phone || student.parentPhone || 'Parent'}`, 
+        { duration: 4000, icon: '📱' }
+      );
       triggerAutoReturn();
     } catch (err) {
       console.error(err);
