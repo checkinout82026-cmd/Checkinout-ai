@@ -118,7 +118,7 @@ export function AdminStudents() {
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-serif font-semibold text-[#4a4a48]">Manage Students</h1>
-            <span className="px-2.5 py-0.5 text-xs font-semibold bg-[#82937f]/15 text-[#5e705b] rounded-full">
+            <span className="px-2.5 py-0.5 text-xs font-semibold bg-[#5c869e]/15 text-[#5e705b] rounded-full">
               {students.length} Students
             </span>
           </div>
@@ -144,8 +144,8 @@ export function AdminStudents() {
               value={id} 
               onChange={e => setId(e.target.value)} 
               disabled={!!isEditing} 
-              placeholder="e.g. 1004"
-              className="w-full px-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#82937f] disabled:opacity-50 text-[#3c3c3b]" 
+              placeholder="e.g. 10004"
+              className="w-full px-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#5c869e] disabled:opacity-50 text-[#3c3c3b]" 
             />
           </div>
           <div>
@@ -156,7 +156,7 @@ export function AdminStudents() {
               value={name} 
               onChange={e => setName(e.target.value)} 
               placeholder="e.g. Liam Parker"
-              className="w-full px-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#82937f] text-[#3c3c3b]" 
+              className="w-full px-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b]" 
             />
           </div>
           <div>
@@ -166,7 +166,7 @@ export function AdminStudents() {
               value={gradeLevel} 
               onChange={e => setGradeLevel(e.target.value)} 
               placeholder="e.g. Grade 3 / Room 102"
-              className="w-full px-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#82937f] text-[#3c3c3b]" 
+              className="w-full px-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b]" 
             />
           </div>
           <div>
@@ -177,7 +177,7 @@ export function AdminStudents() {
               value={parentName} 
               onChange={e => setParentName(e.target.value)} 
               placeholder="e.g. Robert Parker"
-              className="w-full px-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#82937f] text-[#3c3c3b]" 
+              className="w-full px-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b]" 
             />
           </div>
           <div>
@@ -188,7 +188,7 @@ export function AdminStudents() {
               value={parentPhone} 
               onChange={e => setParentPhone(e.target.value)} 
               placeholder="e.g. 555-0144"
-              className="w-full px-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#82937f] text-[#3c3c3b]" 
+              className="w-full px-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b]" 
             />
           </div>
           <div>
@@ -198,7 +198,7 @@ export function AdminStudents() {
               value={parentEmail} 
               onChange={e => setParentEmail(e.target.value)} 
               placeholder="e.g. robert.p@example.com"
-              className="w-full px-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#82937f] text-[#3c3c3b]" 
+              className="w-full px-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b]" 
             />
           </div>
           <div className="md:col-span-2">
@@ -208,13 +208,13 @@ export function AdminStudents() {
               value={pickups} 
               onChange={e => setPickups(e.target.value)} 
               placeholder="e.g. Robert Parker, Elena Parker (Grandmother), Mark Davis (Uncle)" 
-              className="w-full px-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#82937f] text-[#3c3c3b]" 
+              className="w-full px-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b]" 
             />
           </div>
           <div className="md:col-span-2 flex gap-3 pt-2">
             <button 
               type="submit" 
-              className="px-6 py-3 bg-[#82937f] hover:opacity-90 text-white font-bold rounded-2xl transition-colors"
+              className="px-6 py-3 bg-[#5c869e] hover:opacity-90 text-white font-bold rounded-2xl transition-colors"
             >
               {isEditing ? 'Update Student' : 'Add Student'}
             </button>
@@ -266,7 +266,7 @@ export function AdminStudents() {
                     </div>
                   </td>
                   <td className="px-8 py-4 text-right space-x-4">
-                    <button onClick={() => editStudent(s)} className="text-[#82937f] hover:opacity-80 font-bold uppercase tracking-wider text-[10px]">Edit</button>
+                    <button onClick={() => editStudent(s)} className="text-[#5c869e] hover:opacity-80 font-bold uppercase tracking-wider text-[10px]">Edit</button>
                     <button onClick={() => deleteStudent(s.id)} className="text-[#d98466] hover:opacity-80 font-bold uppercase tracking-wider text-[10px]">Delete</button>
                   </td>
                 </tr>

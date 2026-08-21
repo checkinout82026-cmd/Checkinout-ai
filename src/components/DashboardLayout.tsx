@@ -114,7 +114,7 @@ function NavItem({ icon, label, active, onClick }: { icon: React.ReactNode, labe
       onClick={onClick}
       className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
         active 
-          ? 'bg-[#82937f] text-white' 
+          ? 'bg-[#5c869e] text-white' 
           : 'text-[#8c8a86] hover:bg-[#f8f6f3] hover:text-[#3c3c3b]'
       }`}
     >

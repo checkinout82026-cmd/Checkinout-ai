@@ -2,7 +2,7 @@ import { Student } from '../types';
 
 export const TEN_STUDENTS: Student[] = [
   {
-    id: '1001',
+    id: '10001',
     name: 'Liam Smith',
     fullName: 'Liam Smith',
     gradeLevel: 'Kindergarten',
@@ -26,7 +26,7 @@ export const TEN_STUDENTS: Student[] = [
     updatedAt: new Date().toISOString()
   },
   {
-    id: '1002',
+    id: '10002',
     name: 'Noah Johnson',
     fullName: 'Noah Johnson',
     gradeLevel: 'Grade 1',
@@ -50,7 +50,7 @@ export const TEN_STUDENTS: Student[] = [
     updatedAt: new Date().toISOString()
   },
   {
-    id: '1003',
+    id: '10003',
     name: 'Emma Williams',
     fullName: 'Emma Williams',
     gradeLevel: 'Grade 2',
@@ -74,7 +74,7 @@ export const TEN_STUDENTS: Student[] = [
     updatedAt: new Date().toISOString()
   },
   {
-    id: '1004',
+    id: '10004',
     name: 'Oliver Brown',
     fullName: 'Oliver Brown',
     gradeLevel: 'Grade 3',
@@ -98,7 +98,7 @@ export const TEN_STUDENTS: Student[] = [
     updatedAt: new Date().toISOString()
   },
   {
-    id: '1005',
+    id: '10005',
     name: 'Amelia Jones',
     fullName: 'Amelia Jones',
     gradeLevel: 'Grade 4',
@@ -122,7 +122,7 @@ export const TEN_STUDENTS: Student[] = [
     updatedAt: new Date().toISOString()
   },
   {
-    id: '1006',
+    id: '10006',
     name: 'Lucas Garcia',
     fullName: 'Lucas Garcia',
     gradeLevel: 'Grade 5',
@@ -146,7 +146,7 @@ export const TEN_STUDENTS: Student[] = [
     updatedAt: new Date().toISOString()
   },
   {
-    id: '1007',
+    id: '10007',
     name: 'Mia Miller',
     fullName: 'Mia Miller',
     gradeLevel: 'Grade 6',
@@ -170,7 +170,7 @@ export const TEN_STUDENTS: Student[] = [
     updatedAt: new Date().toISOString()
   },
   {
-    id: '1008',
+    id: '10008',
     name: 'Evelyn Davis',
     fullName: 'Evelyn Davis',
     gradeLevel: 'Grade 7',
@@ -194,7 +194,7 @@ export const TEN_STUDENTS: Student[] = [
     updatedAt: new Date().toISOString()
   },
   {
-    id: '1009',
+    id: '10009',
     name: 'James Rodriguez',
     fullName: 'James Rodriguez',
     gradeLevel: 'Grade 8',
@@ -218,7 +218,7 @@ export const TEN_STUDENTS: Student[] = [
     updatedAt: new Date().toISOString()
   },
   {
-    id: '1010',
+    id: '10010',
     name: 'Sophia Martinez',
     fullName: 'Sophia Martinez',
     gradeLevel: 'Grade 2',

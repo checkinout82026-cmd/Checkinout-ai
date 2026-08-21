@@ -135,7 +135,7 @@ Stores student profile, guardian, and pickup data.
 
 ```json
 {
-  "id": "1001",
+  "id": "10001",
   "name": "Liam Smith",
   "fullName": "Liam Smith",
   "gradeLevel": "Kindergarten",
@@ -199,7 +199,7 @@ Stores daily check-in/check-out records.
 ```json
 {
   "id": "4b22a5a7-7e1f-4f81-9de3-aef0a1e7cc61",
-  "studentId": "1001",
+  "studentId": "10001",
   "studentName": "Liam Smith",
   "date": "2026-08-21",
   "status": "checked_out",

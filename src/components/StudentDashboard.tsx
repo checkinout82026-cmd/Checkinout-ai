@@ -177,7 +177,7 @@ export function StudentDashboard({ user, onComplete }: StudentDashboardProps) {
       {onComplete && (
         <button
           onClick={onComplete}
-          className="mt-4 px-6 py-2.5 bg-[#82937f] text-white font-bold rounded-xl text-sm"
+          className="mt-4 px-6 py-2.5 bg-[#5c869e] text-white font-bold rounded-xl text-sm"
         >
           Back to Check-In Terminal
         </button>
@@ -203,14 +203,14 @@ export function StudentDashboard({ user, onComplete }: StudentDashboardProps) {
       <div className="bg-[#fcfaf7] p-8 sm:p-10 rounded-[32px] border border-[#edeae6] text-center shadow-sm relative overflow-hidden">
         {/* Countdown banner when action completed */}
         {redirectCountdown !== null && (
-          <div className="mb-6 p-4 bg-[#82937f15] border border-[#82937f30] rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-[#4a4a48] animate-in fade-in">
+          <div className="mb-6 p-4 bg-[#5c869e15] border border-[#5c869e30] rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-[#4a4a48] animate-in fade-in">
             <div className="flex items-center gap-2">
-              <RotateCcw size={16} className="text-[#82937f] animate-spin" />
+              <RotateCcw size={16} className="text-[#5c869e] animate-spin" />
               <span>Returning to kiosk for next student in <strong>{redirectCountdown}s</strong>...</span>
             </div>
             <button
               onClick={handleImmediateBack}
-              className="px-4 py-1.5 bg-[#82937f] hover:opacity-90 text-white font-bold text-xs rounded-xl transition-all shadow-sm shrink-0 cursor-pointer"
+              className="px-4 py-1.5 bg-[#5c869e] hover:opacity-90 text-white font-bold text-xs rounded-xl transition-all shadow-sm shrink-0 cursor-pointer"
             >
               Next Student Now
             </button>
@@ -243,10 +243,10 @@ export function StudentDashboard({ user, onComplete }: StudentDashboardProps) {
             </span>
           )}
           {status === 'checked-in' && (
-            <span className="inline-flex items-center gap-2 px-4 py-2 bg-[#82937f15] text-[#82937f] border border-[#82937f30] rounded-full text-xs uppercase font-bold tracking-widest">
+            <span className="inline-flex items-center gap-2 px-4 py-2 bg-[#5c869e15] text-[#5c869e] border border-[#5c869e30] rounded-full text-xs uppercase font-bold tracking-widest">
               <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#82937f] opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#82937f]"></span>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#5c869e] opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#5c869e]"></span>
               </span>
               Currently Checked In ({todayRecord?.checkInTime ? format(new Date(todayRecord.checkInTime), 'h:mm a') : 'Today'})
             </span>
@@ -259,7 +259,7 @@ export function StudentDashboard({ user, onComplete }: StudentDashboardProps) {
               </span>
               {todayRecord?.checkOutStaffName && (
                 <div className="text-xs text-[#8c8a86] flex items-center justify-center gap-1 mt-1">
-                  <ShieldCheck size={14} className="text-[#82937f]" />
+                  <ShieldCheck size={14} className="text-[#5c869e]" />
                   <span>Authorized by: <strong className="text-[#4a4a48]">{todayRecord.checkOutStaffName}</strong></span>
                 </div>
               )}
@@ -274,12 +274,12 @@ export function StudentDashboard({ user, onComplete }: StudentDashboardProps) {
 
         {/* Check-Out SMS Dispatch Notification */}
         {showCheckoutConfirmation && todayRecord?.smsNotificationSent && (
-          <div className="max-w-md mx-auto mb-6 p-4 bg-[#82937f10] border border-[#82937f30] rounded-2xl text-left animate-in fade-in">
-            <div className="flex items-center gap-2 text-xs font-bold text-[#82937f] uppercase tracking-wider mb-1.5">
+          <div className="max-w-md mx-auto mb-6 p-4 bg-[#5c869e10] border border-[#5c869e30] rounded-2xl text-left animate-in fade-in">
+            <div className="flex items-center gap-2 text-xs font-bold text-[#5c869e] uppercase tracking-wider mb-1.5">
               <span>📱 SMS Notification Dispatched</span>
             </div>
-            <p className="text-xs text-[#4a4a48] font-mono bg-white/80 p-2.5 rounded-xl border border-[#82937f20]">
-              "{student.name} was checked out from ABC Community School at {todayRecord.checkOutTime ? format(new Date(todayRecord.checkOutTime), 'h:mm a') : 'now'}."
+            <p className="text-xs text-[#4a4a48] font-mono bg-white/80 p-2.5 rounded-xl border border-[#5c869e20]">
+              "{student.name} was checked out from Kumon at {todayRecord.checkOutTime ? format(new Date(todayRecord.checkOutTime), 'h:mm a') : 'now'}."
             </p>
             <p className="text-[11px] text-[#8c8a86] mt-1.5">
               Sent to {student.parent?.name || student.parentName} ({student.parent?.phone || student.parentPhone})
@@ -316,7 +316,7 @@ export function StudentDashboard({ user, onComplete }: StudentDashboardProps) {
               className={`w-full py-4 px-6 font-bold rounded-2xl transition-all shadow-sm flex items-center justify-center gap-2 text-base cursor-pointer ${
                 status === 'checked-in'
                   ? 'bg-[#f2efe9] text-[#8c8a86] cursor-not-allowed opacity-60'
-                  : 'bg-[#82937f] hover:opacity-90 text-white'
+                  : 'bg-[#5c869e] hover:opacity-90 text-white'
               }`}
             >
               <UserCheck size={20} />

@@ -21,15 +21,12 @@ export function StaffApprovalModal({
 }: StaffApprovalModalProps) {
   const [staffUsers, setStaffUsers] = useState<User[]>([]);
   const [selectedStaffId, setSelectedStaffId] = useState('');
-  const [staffPassword, setStaffPassword] = useState('');
-  const [isVerifying, setIsVerifying] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
     if (!isOpen) return;
 
     let isMounted = true;
-    setStaffPassword('');
     setErrorMessage('');
 
     const applyUsers = (users: User[]) => {
@@ -59,23 +56,6 @@ export function StaffApprovalModal({
       return;
     }
 
-    setIsVerifying(true);
-
-    // Verify staff credentials against stored password or default admin password
-    const enteredPass = staffPassword.trim();
-    const isMasterAdmin = staff.email?.toLowerCase() === 'smith.admin@school.com' || staff.username === 'smith.admin';
-    const isPasswordValid = 
-      (staff.password && staff.password === enteredPass) || 
-      (isMasterAdmin && (enteredPass === 'AdminSmith#2026' || !staff.password)) ||
-      (!staff.password && enteredPass.length >= 4); // If newly created without local pass
-
-    if (!isPasswordValid) {
-      setIsVerifying(false);
-      setErrorMessage('Invalid staff password. Please try again.');
-      return;
-    }
-
-    setIsVerifying(false);
     toast.success(`Check-out verified by ${staff.name} (${staff.role.toUpperCase()})`);
     onApproved(staff);
   };
@@ -112,7 +92,7 @@ export function StaffApprovalModal({
           </div>
           <div className="flex justify-between items-center text-xs">
             <span className="text-[#8c8a86]">Authorized Pickup:</span>
-            <span className="font-semibold text-[#82937f] bg-[#82937f]/10 px-2 py-0.5 rounded-md">{pickupPerson}</span>
+            <span className="font-semibold text-[#5c869e] bg-[#5c869e]/10 px-2 py-0.5 rounded-md">{pickupPerson}</span>
           </div>
         </div>
 
@@ -135,7 +115,7 @@ export function StaffApprovalModal({
                 setSelectedStaffId(e.target.value);
                 setErrorMessage('');
               }}
-              className="w-full px-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-[#82937f] text-[#3c3c3b]"
+              className="w-full px-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b]"
               required
             >
               {staffUsers.map((u) => (
@@ -144,30 +124,6 @@ export function StaffApprovalModal({
                 </option>
               ))}
             </select>
-          </div>
-
-          <div>
-            <label className="block text-[10px] uppercase tracking-widest text-[#8c8a86] font-bold mb-1.5">
-              Staff Password
-            </label>
-            <div className="relative">
-              <input
-                type="password"
-                required
-                autoFocus
-                value={staffPassword}
-                onChange={(e) => {
-                  setStaffPassword(e.target.value);
-                  setErrorMessage('');
-                }}
-                placeholder="Enter staff security password"
-                className="w-full px-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl text-sm outline-none focus:ring-2 focus:ring-[#82937f] text-[#3c3c3b]"
-              />
-              <Lock size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8c8a86]" />
-            </div>
-            <p className="text-[11px] text-[#8c8a86] mt-1.5">
-              A staff member or administrator must enter their password to confirm dismissal.
-            </p>
           </div>
 
           <div className="pt-3 flex gap-3">
@@ -180,11 +136,10 @@ export function StaffApprovalModal({
             </button>
             <button
               type="submit"
-              disabled={isVerifying || !staffPassword.trim()}
               className="flex-1 py-3 bg-[#d98466] hover:opacity-90 text-white font-bold rounded-2xl transition-all shadow-sm flex items-center justify-center gap-2 text-sm disabled:opacity-50"
             >
               <CheckCircle2 size={16} />
-              {isVerifying ? 'Verifying...' : 'Approve & Release'}
+              Approve & Release
             </button>
           </div>
         </form>

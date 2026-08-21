@@ -55,10 +55,10 @@ export function CheckedInList() {
           <h1 className="text-2xl font-serif font-semibold text-[#4a4a48]">Currently Checked-In</h1>
           <p className="text-[#8c8a86] mt-1 text-sm">Live roster of all students currently on premises.</p>
         </div>
-        <div className="flex items-center gap-2 px-4 py-2 bg-[#82937f15] text-[#82937f] border border-[#82937f30] rounded-2xl font-bold text-sm">
+        <div className="flex items-center gap-2 px-4 py-2 bg-[#5c869e15] text-[#5c869e] border border-[#5c869e30] rounded-2xl font-bold text-sm">
           <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#82937f] opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#82937f]"></span>
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#5c869e] opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#5c869e]"></span>
           </span>
           {checkedIn.length} Active {checkedIn.length === 1 ? 'Student' : 'Students'}
         </div>
@@ -96,7 +96,7 @@ export function CheckedInList() {
                       )}
                     </td>
                     <td className="px-8 py-4 text-[#8c8a86]">
-                      <span className="w-2 h-2 rounded-full bg-[#82937f] inline-block mr-2"></span>
+                      <span className="w-2 h-2 rounded-full bg-[#5c869e] inline-block mr-2"></span>
                       {item.record.checkInTime ? format(new Date(item.record.checkInTime), 'h:mm a') : 'N/A'}
                     </td>
                     <td className="px-8 py-4">

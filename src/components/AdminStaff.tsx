@@ -109,7 +109,7 @@ export function AdminStaff() {
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-serif font-semibold text-[#4a4a48]">Manage Staff & Admins</h1>
-            <span className="px-2.5 py-0.5 text-xs font-semibold bg-[#82937f]/15 text-[#5e705b] rounded-full">
+            <span className="px-2.5 py-0.5 text-xs font-semibold bg-[#5c869e]/15 text-[#4b6573] rounded-full">
               {staffList.filter(u => u.role !== 'student').length} Accounts
             </span>
           </div>
@@ -119,7 +119,7 @@ export function AdminStaff() {
         </div>
         <button
           onClick={() => setShowAddForm(!showAddForm)}
-          className="inline-flex items-center gap-2 px-5 py-3 bg-[#82937f] hover:opacity-90 text-white font-bold rounded-2xl transition-all shadow-sm text-sm"
+          className="inline-flex items-center gap-2 px-5 py-3 bg-[#5c869e] hover:opacity-90 text-white font-bold rounded-2xl transition-all shadow-sm text-sm"
         >
           <UserPlus size={18} />
           {showAddForm ? 'Close Form' : 'Register New Account'}
@@ -129,7 +129,7 @@ export function AdminStaff() {
       {showAddForm && (
         <div className="bg-white p-6 rounded-[32px] border border-[#e5e1da] shadow-sm animate-in fade-in slide-in-from-top-2">
           <div className="flex items-center gap-2 mb-4">
-            <Shield size={20} className="text-[#82937f]" />
+            <Shield size={20} className="text-[#5c869e]" />
             <h2 className="text-lg font-serif font-semibold text-[#4a4a48]">Register New Firebase User</h2>
           </div>
           <form onSubmit={handleAddStaff} className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -141,7 +141,7 @@ export function AdminStaff() {
                 value={name}
                 onChange={e => setName(e.target.value)}
                 placeholder="e.g. Rachel Adams"
-                className="w-full px-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#82937f] text-[#3c3c3b]"
+                className="w-full px-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b]"
               />
             </div>
             <div>
@@ -152,7 +152,7 @@ export function AdminStaff() {
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 placeholder="rachel@school.org"
-                className="w-full px-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#82937f] text-[#3c3c3b]"
+                className="w-full px-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b]"
               />
             </div>
             <div>
@@ -163,7 +163,7 @@ export function AdminStaff() {
                 value={username}
                 onChange={e => setUsername(e.target.value)}
                 placeholder="e.g. rachel.staff"
-                className="w-full px-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#82937f] text-[#3c3c3b]"
+                className="w-full px-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b]"
               />
             </div>
             <div>
@@ -174,7 +174,7 @@ export function AdminStaff() {
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 placeholder="Minimum 6 characters"
-                className="w-full px-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#82937f] text-[#3c3c3b]"
+                className="w-full px-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b]"
               />
             </div>
             <div>
@@ -182,7 +182,7 @@ export function AdminStaff() {
               <select
                 value={role}
                 onChange={e => setRole(e.target.value as Role)}
-                className="w-full px-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#82937f] text-[#3c3c3b]"
+                className="w-full px-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b]"
               >
                 <option value="staff">Staff (Daily Check In / Out)</option>
                 <option value="admin">Administrator (Full Access & Reports)</option>
@@ -195,14 +195,14 @@ export function AdminStaff() {
                 value={phone}
                 onChange={e => setPhone(e.target.value)}
                 placeholder="555-0155"
-                className="w-full px-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#82937f] text-[#3c3c3b]"
+                className="w-full px-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b]"
               />
             </div>
             <div className="md:col-span-2 flex gap-3 pt-2">
               <button
                 type="submit"
                 disabled={loading}
-                className="px-6 py-3 bg-[#82937f] hover:opacity-90 text-white font-bold rounded-2xl transition-colors flex items-center gap-2 disabled:opacity-50"
+                className="px-6 py-3 bg-[#5c869e] hover:opacity-90 text-white font-bold rounded-2xl transition-colors flex items-center gap-2 disabled:opacity-50"
               >
                 {loading ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
                 Save & Register
@@ -247,7 +247,7 @@ export function AdminStaff() {
                   </td>
                   <td className="px-8 py-4 text-[#8c8a86] font-mono">{s.username}</td>
                   <td className="px-8 py-4">
-                    <span className={`inline-flex px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${s.role === 'admin' ? 'bg-[#82937f15] text-[#82937f] border border-[#82937f30]' : 'bg-[#f8f6f3] text-[#8c8a86] border border-[#edeae6]'}`}>
+                    <span className={`inline-flex px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${s.role === 'admin' ? 'bg-[#5c869e15] text-[#5c869e] border border-[#5c869e30]' : 'bg-[#f8f6f3] text-[#8c8a86] border border-[#edeae6]'}`}>
                       {s.role}
                     </span>
                   </td>
@@ -258,7 +258,7 @@ export function AdminStaff() {
                         <button 
                           onClick={() => handleSendReset(s.email!, s.name)} 
                           title="Send Firebase Password Reset Email"
-                          className="text-[#82937f] hover:underline font-bold text-xs flex items-center gap-1"
+                          className="text-[#5c869e] hover:underline font-bold text-xs flex items-center gap-1"
                         >
                           <KeyRound size={13} />
                           Reset Password

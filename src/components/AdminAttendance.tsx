@@ -126,7 +126,7 @@ export function AdminAttendance() {
   const openAddModal = () => {
     const today = format(new Date(), 'yyyy-MM-dd');
     const nowTime = format(new Date(), 'HH:mm');
-    setFormStudentId(students[0]?.id || '1001');
+    setFormStudentId(students[0]?.id || '10001');
     setFormDate(today);
     setFormCheckInTime(nowTime);
     setFormCheckInStaffId(users[0]?.id || '');
@@ -269,7 +269,7 @@ export function AdminAttendance() {
         <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={openAddModal}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#82937f] hover:opacity-90 text-white font-bold rounded-2xl transition-all shadow-sm text-sm"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#5c869e] hover:opacity-90 text-white font-bold rounded-2xl transition-all shadow-sm text-sm"
           >
             <Plus size={16} />
             Add Manual Record
@@ -278,7 +278,7 @@ export function AdminAttendance() {
             type="date"
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
-            className="px-4 py-2.5 bg-white border border-[#e5e1da] rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-[#82937f] text-[#3c3c3b]"
+            className="px-4 py-2.5 bg-white border border-[#e5e1da] rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b]"
           />
           {selectedDate && (
             <button
@@ -294,7 +294,7 @@ export function AdminAttendance() {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white p-5 rounded-3xl border border-[#e5e1da] shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-[#f8f6f3] flex items-center justify-center text-[#82937f]">
+          <div className="w-12 h-12 rounded-2xl bg-[#f8f6f3] flex items-center justify-center text-[#5c869e]">
             <UserCheck size={24} />
           </div>
           <div>
@@ -304,11 +304,11 @@ export function AdminAttendance() {
         </div>
 
         <div className="bg-white p-5 rounded-3xl border border-[#e5e1da] shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-[#82937f15] flex items-center justify-center text-[#82937f]">
+          <div className="w-12 h-12 rounded-2xl bg-[#5c869e15] flex items-center justify-center text-[#5c869e]">
             <Clock size={24} />
           </div>
           <div>
-            <div className="text-2xl font-serif font-bold text-[#82937f]">{activeCheckIns}</div>
+            <div className="text-2xl font-serif font-bold text-[#5c869e]">{activeCheckIns}</div>
             <div className="text-xs text-[#8c8a86] uppercase font-bold tracking-widest">Currently Checked In</div>
           </div>
         </div>
@@ -382,7 +382,7 @@ export function AdminAttendance() {
                     </td>
                     <td className="px-6 py-4 text-[#8c8a86] whitespace-nowrap">
                       {r.checkOutTime ? format(new Date(r.checkOutTime), 'h:mm a') : (
-                        <span className="inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-[#82937f15] text-[#82937f] border border-[#82937f30]">
+                        <span className="inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-[#5c869e15] text-[#5c869e] border border-[#5c869e30]">
                           Active On-Site
                         </span>
                       )}
@@ -395,7 +395,7 @@ export function AdminAttendance() {
                         <div>
                           <span className="font-medium text-[#4a4a48]">{pickupName}</span>
                           {r.smsNotificationSent && (
-                            <span className="block text-[10px] text-[#82937f] font-semibold flex items-center gap-1">
+                            <span className="block text-[10px] text-[#5c869e] font-semibold flex items-center gap-1">
                               <MessageSquare size={10} /> SMS Sent
                             </span>
                           )}
@@ -406,7 +406,7 @@ export function AdminAttendance() {
                       <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${
                         r.checkOutTime
                           ? 'bg-[#d9846615] text-[#d98466] border border-[#d9846630]'
-                          : 'bg-[#82937f15] text-[#82937f] border border-[#82937f30]'
+                          : 'bg-[#5c869e15] text-[#5c869e] border border-[#5c869e30]'
                       }`}>
                         {r.checkOutTime ? 'Checked Out' : 'Checked In'}
                       </span>
@@ -414,7 +414,7 @@ export function AdminAttendance() {
                     <td className="px-6 py-4 text-right space-x-3 whitespace-nowrap">
                       <button 
                         onClick={() => openEditModal(r)}
-                        className="inline-flex items-center gap-1 text-[#82937f] hover:opacity-80 font-bold uppercase tracking-wider text-[10px]"
+                        className="inline-flex items-center gap-1 text-[#5c869e] hover:opacity-80 font-bold uppercase tracking-wider text-[10px]"
                         title="Edit Record"
                       >
                         <Edit3 size={12} /> Edit
@@ -540,7 +540,7 @@ export function AdminAttendance() {
                   id="formSmsSent"
                   checked={formSmsSent}
                   onChange={e => setFormSmsSent(e.target.checked)}
-                  className="rounded text-[#82937f] focus:ring-[#82937f]"
+                  className="rounded text-[#5c869e] focus:ring-[#5c869e]"
                 />
                 <label htmlFor="formSmsSent" className="text-xs text-[#4a4a48] font-medium">
                   Parent SMS notification marked as dispatched
@@ -550,7 +550,7 @@ export function AdminAttendance() {
               <div className="flex gap-3 pt-4 border-t border-[#e5e1da]">
                 <button
                   type="submit"
-                  className="flex-1 py-3 bg-[#82937f] hover:opacity-90 text-white font-bold rounded-xl transition-colors"
+                  className="flex-1 py-3 bg-[#5c869e] hover:opacity-90 text-white font-bold rounded-xl transition-colors"
                 >
                   Save Corrections
                 </button>
@@ -672,7 +672,7 @@ export function AdminAttendance() {
               <div className="flex gap-3 pt-4 border-t border-[#e5e1da]">
                 <button
                   type="submit"
-                  className="flex-1 py-3 bg-[#82937f] hover:opacity-90 text-white font-bold rounded-xl transition-colors"
+                  className="flex-1 py-3 bg-[#5c869e] hover:opacity-90 text-white font-bold rounded-xl transition-colors"
                 >
                   Create Attendance Record
                 </button>

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../lib/db';
 import { signInWithEmail, signInWithGoogle, sendPasswordReset } from '../lib/auth';
-import { User, Student } from '../types';
+import { User, Student, AttendanceRecord } from '../types';
 import toast from 'react-hot-toast';
+import { format } from 'date-fns';
 import { Database, Shield, GraduationCap, Lock, Mail, KeyRound, ArrowLeft, Loader2 } from 'lucide-react';
 
 interface LoginProps {
@@ -20,6 +21,7 @@ export function Login({ onLogin }: LoginProps) {
   
   const [loading, setLoading] = useState(false);
   const [students, setStudents] = useState<Student[]>([]);
+  const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
 
   useEffect(() => {
     // Subscribe to Firestore for real-time credentials and student search
@@ -27,8 +29,13 @@ export function Login({ onLogin }: LoginProps) {
       setStudents(list);
     });
 
+    const unsubAttendance = db.subscribeAttendance((list) => {
+      setAttendance(list);
+    });
+
     return () => {
       if (typeof unsubStudents === 'function') unsubStudents();
+      if (typeof unsubAttendance === 'function') unsubAttendance();
     };
   }, []);
 
@@ -152,71 +159,79 @@ export function Login({ onLogin }: LoginProps) {
         </div>
 
         {/* STUDENT MODE */}
-        {mode === 'student' && (
-          <form onSubmit={handleStudentSubmit} className="space-y-4">
-            <div>
-              <label className="block text-[10px] uppercase tracking-widest text-[#8c8a86] font-bold mb-2">
-                Student ID #
-              </label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-5 py-3.5 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl focus:ring-2 focus:ring-[#82937f] focus:border-[#82937f] outline-none transition-all text-[#3c3c3b] font-mono text-lg"
-                placeholder="e.g. 1001"
-                autoFocus
-                required
-              />
+        {mode === 'student' && (() => {
+          const matchedStudent = username.trim() ? students.find(s => s.id.toLowerCase() === username.trim().toLowerCase()) : null;
+          const today = format(new Date(), 'yyyy-MM-dd');
+          const todayRecord = matchedStudent ? attendance.find(r => r.studentId === matchedStudent.id && r.date === today) : null;
+          const status = todayRecord ? (todayRecord.checkOutTime ? 'checked-out' : 'checked-in') : 'none';
+          const buttonText = status === 'checked-in' ? 'Check out' : 'Check in';
 
-              {/* Student Lookup Preview */}
-              {username.trim() && (() => {
-                const matchedStudent = students.find(s => s.id.toLowerCase() === username.trim().toLowerCase());
-                if (matchedStudent) {
-                  return (
-                    <div className="mt-3 p-3.5 bg-[#82937f10] border border-[#82937f30] rounded-2xl animate-in fade-in slide-in-from-top-1 text-left">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-[#82937f] uppercase tracking-wider">Student Found</span>
-                        <span className="text-[11px] font-mono font-bold text-[#8c8a86]">ID: {matchedStudent.id}</span>
-                      </div>
-                      <div className="text-base font-serif font-bold text-[#4a4a48] mt-0.5">{matchedStudent.name}</div>
-                      <div className="text-xs text-[#8c8a86] mt-1 space-y-0.5">
-                        <div><span className="font-semibold text-[#4a4a48]">Grade:</span> {matchedStudent.gradeLevel || 'N/A'}</div>
-                        <div><span className="font-semibold text-[#4a4a48]">Parent/Guardian:</span> {matchedStudent.parent?.name || matchedStudent.parentName || 'N/A'}</div>
-                      </div>
-                    </div>
-                  );
-                }
-                const partialMatches = students.filter(s => s.id.includes(username.trim()) || s.name.toLowerCase().includes(username.trim().toLowerCase())).slice(0, 3);
-                if (partialMatches.length > 0) {
-                  return (
-                    <div className="mt-2 text-xs text-[#8c8a86]">
-                      <span className="font-semibold">Quick select: </span>
-                      {partialMatches.map(s => (
-                        <button
-                          key={s.id}
-                          type="button"
-                          onClick={() => setUsername(s.id)}
-                          className="mr-2 underline hover:text-[#82937f] font-mono"
-                        >
-                          {s.id} ({s.name})
-                        </button>
-                      ))}
-                    </div>
-                  );
-                }
-                return null;
-              })()}
-            </div>
+          return (
+            <form onSubmit={handleStudentSubmit} className="space-y-4">
+              <div>
+                <label className="block text-[10px] uppercase tracking-widest text-[#8c8a86] font-bold mb-2">
+                  Student ID #
+                </label>
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="w-full px-5 py-3.5 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl focus:ring-2 focus:ring-[#5c869e] focus:border-[#5c869e] outline-none transition-all text-[#3c3c3b] font-mono text-lg"
+                  placeholder="e.g. 10001"
+                  autoFocus
+                  required
+                />
 
-            <button
-              type="submit"
-              className="w-full bg-[#82937f] hover:opacity-90 text-white font-bold py-4 rounded-2xl transition-all mt-4 flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <GraduationCap size={18} />
-              Check in
-            </button>
-          </form>
-        )}
+                {/* Student Lookup Preview */}
+                {username.trim() && (() => {
+                  if (matchedStudent) {
+                    return (
+                      <div className="mt-3 p-3.5 bg-[#5c869e10] border border-[#5c869e30] rounded-2xl animate-in fade-in slide-in-from-top-1 text-left">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-[#5c869e] uppercase tracking-wider">Student Found</span>
+                          <span className="text-[11px] font-mono font-bold text-[#8c8a86]">ID: {matchedStudent.id}</span>
+                        </div>
+                        <div className="text-base font-serif font-bold text-[#4a4a48] mt-0.5">{matchedStudent.name}</div>
+                        <div className="text-xs text-[#8c8a86] mt-1 space-y-0.5">
+                          <div><span className="font-semibold text-[#4a4a48]">Parent/Guardian:</span> {matchedStudent.parent?.name || matchedStudent.parentName || 'N/A'}</div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  const partialMatches = students.filter(s => s.id.includes(username.trim()) || s.name.toLowerCase().includes(username.trim().toLowerCase())).slice(0, 3);
+                  if (partialMatches.length > 0) {
+                    return (
+                      <div className="mt-2 text-xs text-[#8c8a86]">
+                        <span className="font-semibold">Quick select: </span>
+                        {partialMatches.map(s => (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => setUsername(s.id)}
+                            className="mr-2 underline hover:text-[#5c869e] font-mono"
+                          >
+                            {s.id} ({s.name})
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
+
+              {matchedStudent && (
+                <button
+                  type="submit"
+                  className="w-full bg-[#5c869e] hover:opacity-90 text-white font-bold py-4 rounded-2xl transition-all mt-4 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <GraduationCap size={18} />
+                  {buttonText}
+                </button>
+              )}
+            </form>
+          );
+        })()}
 
         {/* STAFF & ADMIN AUTH MODES */}
         {mode === 'staff' && (
@@ -244,7 +259,7 @@ export function Login({ onLogin }: LoginProps) {
                       value={email}
                       onChange={e => setEmail(e.target.value)}
                       placeholder="smith.admin@school.com"
-                      className="w-full px-5 py-3.5 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl focus:ring-2 focus:ring-[#82937f] outline-none text-[#3c3c3b]"
+                      className="w-full px-5 py-3.5 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl focus:ring-2 focus:ring-[#5c869e] outline-none text-[#3c3c3b]"
                     />
                     <Mail size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8c8a86]" />
                   </div>
@@ -253,7 +268,7 @@ export function Login({ onLogin }: LoginProps) {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-[#82937f] hover:opacity-90 text-white font-bold py-3.5 rounded-2xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                  className="w-full bg-[#5c869e] hover:opacity-90 text-white font-bold py-3.5 rounded-2xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                 >
                   {loading ? <Loader2 size={18} className="animate-spin" /> : <KeyRound size={18} />}
                   Send Password Reset Link
@@ -272,7 +287,7 @@ export function Login({ onLogin }: LoginProps) {
                         setEmail(e.target.value);
                         setUsername(e.target.value);
                       }}
-                      className="w-full px-5 py-3.5 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl focus:ring-2 focus:ring-[#82937f] focus:border-[#82937f] outline-none transition-all text-[#3c3c3b]"
+                      className="w-full px-5 py-3.5 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl focus:ring-2 focus:ring-[#5c869e] focus:border-[#5c869e] outline-none transition-all text-[#3c3c3b]"
                       placeholder="smith.admin@school.com"
                       required
                     />
@@ -289,7 +304,7 @@ export function Login({ onLogin }: LoginProps) {
                       type="password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full px-5 py-3.5 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl focus:ring-2 focus:ring-[#82937f] focus:border-[#82937f] outline-none transition-all text-[#3c3c3b]"
+                      className="w-full px-5 py-3.5 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl focus:ring-2 focus:ring-[#5c869e] focus:border-[#5c869e] outline-none transition-all text-[#3c3c3b]"
                       placeholder="••••••••"
                       required
                     />
@@ -300,7 +315,7 @@ export function Login({ onLogin }: LoginProps) {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-[#82937f] hover:opacity-90 text-white font-bold py-4 rounded-2xl transition-all mt-2 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                  className="w-full bg-[#5c869e] hover:opacity-90 text-white font-bold py-4 rounded-2xl transition-all mt-2 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                 >
                   {loading ? <Loader2 size={18} className="animate-spin" /> : <Shield size={18} />}
                   Sign In 

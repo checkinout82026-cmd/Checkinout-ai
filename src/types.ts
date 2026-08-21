@@ -34,7 +34,7 @@ export interface AuthorizedPickupPerson {
 }
 
 export interface Student {
-  id: string; // The ID # used for check-in (e.g. "1001")
+  id: string; // The ID # used for check-in (e.g. "10001")
   userId?: string;
   name: string;
   fullName?: string;

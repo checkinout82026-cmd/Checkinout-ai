@@ -147,7 +147,7 @@ export function CheckInOut({ user }: { user: User }) {
       
       const parentPhone = activeStudent.parent?.phone || activeStudent.parentPhone || 'Parent Contact';
       const timeFormatted = format(new Date(now), 'h:mm a');
-      const smsContent = `${activeStudent.name} was checked out from ABC Community School at ${timeFormatted}.`;
+      const smsContent = `${activeStudent.name} was checked out from Kumon at ${timeFormatted}.`;
 
       setLastSmsMessage({
         to: parentPhone,
@@ -188,8 +188,8 @@ export function CheckInOut({ user }: { user: User }) {
                 value={studentId}
                 onFocus={() => setIsFocused(true)}
                 onChange={(e) => setStudentId(e.target.value)}
-                placeholder="e.g. 1001 or John Smith"
-                className="w-full pl-12 pr-4 py-3 bg-[#f8f6f3] text-lg font-mono tracking-wide border border-[#e5e1da] rounded-2xl focus:ring-2 focus:ring-[#82937f] outline-none text-[#3c3c3b]"
+                placeholder="e.g. 10001 or John Smith"
+                className="w-full pl-12 pr-4 py-3 bg-[#f8f6f3] text-lg font-mono tracking-wide border border-[#e5e1da] rounded-2xl focus:ring-2 focus:ring-[#5c869e] outline-none text-[#3c3c3b]"
                 required
               />
             </div>
@@ -211,7 +211,7 @@ export function CheckInOut({ user }: { user: User }) {
                         Parent: {s.parent?.name || s.parentName} • {s.parent?.phone || s.parentPhone}
                       </div>
                     </div>
-                    <span className="font-mono text-xs font-bold px-2.5 py-1 bg-[#82937f15] text-[#82937f] rounded-lg">
+                    <span className="font-mono text-xs font-bold px-2.5 py-1 bg-[#5c869e15] text-[#5c869e] rounded-lg">
                       ID #{s.id}
                     </span>
                   </button>
@@ -222,7 +222,7 @@ export function CheckInOut({ user }: { user: User }) {
 
           <button
             type="submit"
-            className="px-8 py-3 bg-[#82937f] hover:opacity-90 text-white font-bold rounded-2xl transition-colors h-[50px] sm:h-[54px] shrink-0"
+            className="px-8 py-3 bg-[#5c869e] hover:opacity-90 text-white font-bold rounded-2xl transition-colors h-[50px] sm:h-[54px] shrink-0"
           >
             Lookup Student
           </button>
@@ -263,7 +263,7 @@ export function CheckInOut({ user }: { user: User }) {
                     <UserMinus size={14} /> Checked Out Today
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#82937f15] text-[#82937f] border border-[#82937f30] rounded-full text-[10px] uppercase font-bold tracking-widest">
+                  <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#5c869e15] text-[#5c869e] border border-[#5c869e30] rounded-full text-[10px] uppercase font-bold tracking-widest">
                     <UserCheck size={14} /> Currently Checked In
                   </span>
                 )
@@ -282,7 +282,7 @@ export function CheckInOut({ user }: { user: User }) {
                 <button
                   onClick={handleCheckIn}
                   disabled={isSubmitting}
-                  className="w-full sm:w-auto px-8 py-4 bg-[#82937f] hover:opacity-90 text-white font-bold rounded-2xl transition-colors flex items-center justify-center gap-2 text-base disabled:opacity-50 shadow-sm"
+                  className="w-full sm:w-auto px-8 py-4 bg-[#5c869e] hover:opacity-90 text-white font-bold rounded-2xl transition-colors flex items-center justify-center gap-2 text-base disabled:opacity-50 shadow-sm"
                 >
                   <UserCheck size={20} />
                   {isSubmitting ? 'Recording...' : `Check In ${activeStudent.name}`}
@@ -301,7 +301,7 @@ export function CheckInOut({ user }: { user: User }) {
                     <button
                       type="button"
                       onClick={() => setIsCustom(!isCustom)}
-                      className="text-xs text-[#82937f] hover:underline font-bold"
+                      className="text-xs text-[#5c869e] hover:underline font-bold"
                     >
                       {isCustom ? 'Select from authorized list' : '+ Custom / Other Person'}
                     </button>
@@ -338,7 +338,7 @@ export function CheckInOut({ user }: { user: User }) {
                   {isSubmitting ? 'Processing...' : 'Complete Check-Out & Dispatch SMS'}
                 </button>
                 <div className="flex items-center gap-2 text-xs text-[#8c8a86] bg-[#f8f6f3] p-3 rounded-xl">
-                  <ShieldCheck size={16} className="text-[#82937f] shrink-0" />
+                  <ShieldCheck size={16} className="text-[#5c869e] shrink-0" />
                   <span>Verified by staff member <strong>{user.name}</strong>. Parent SMS will automatically trigger upon checkout.</span>
                 </div>
               </div>
@@ -354,15 +354,15 @@ export function CheckInOut({ user }: { user: User }) {
 
             {/* Live SMS Notification Dispatch Preview */}
             {lastSmsMessage && (
-              <div className="mt-6 p-5 bg-[#82937f10] border border-[#82937f30] rounded-2xl animate-in fade-in space-y-2">
-                <div className="flex items-center justify-between text-xs text-[#82937f] font-bold uppercase tracking-wider">
+              <div className="mt-6 p-5 bg-[#5c869e10] border border-[#5c869e30] rounded-2xl animate-in fade-in space-y-2">
+                <div className="flex items-center justify-between text-xs text-[#5c869e] font-bold uppercase tracking-wider">
                   <span className="flex items-center gap-1.5">
                     <MessageSquare size={16} />
                     SMS Notification Delivered
                   </span>
                   <span>Recipient: {lastSmsMessage.to}</span>
                 </div>
-                <div className="p-3 bg-white rounded-xl border border-[#82937f25] font-mono text-sm text-[#3c3c3b]">
+                <div className="p-3 bg-white rounded-xl border border-[#5c869e25] font-mono text-sm text-[#3c3c3b]">
                   &quot;{lastSmsMessage.text}&quot;
                 </div>
                 <p className="text-[11px] text-[#8c8a86]">
