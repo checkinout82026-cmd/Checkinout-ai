@@ -114,12 +114,17 @@ export function Login({ onLogin }: LoginProps) {
       <div className="w-full max-w-md bg-white p-8 rounded-[32px] shadow-sm border border-[#e5e1da]">
         {/* Header Branding */}
         <div className="text-center mb-6">
-          <div className="w-16 h-16 bg-[#82937f] rounded-2xl flex items-center justify-center text-white font-bold text-3xl mx-auto mb-4 shadow-sm">
-            A
-          </div>
-          <h1 className="text-3xl font-serif font-medium tracking-tight text-[#4a4a48]">ABC Community School</h1>
-          <p className="text-[#8c8a86] mt-1.5 text-sm">Attendance & Student Management System</p>
-          
+          {/* Kumon Logo */}
+          <img
+            src="./assets/kumon_logo.webp" // Update this path based on where you store the logo
+            alt="Kumon Dublin - East"
+            className="mx-auto h-24 w-auto object-contain mb-4"
+          />
+
+          {/* Location */}
+          <h1 className="text-3xl font-bold text-black">
+            Dublin - East
+          </h1>
         </div>
 
         {/* Top Role Selector */}
@@ -208,7 +213,7 @@ export function Login({ onLogin }: LoginProps) {
               className="w-full bg-[#82937f] hover:opacity-90 text-white font-bold py-4 rounded-2xl transition-all mt-4 flex items-center justify-center gap-2 cursor-pointer"
             >
               <GraduationCap size={18} />
-              Continue to Student Dashboard
+              Check in
             </button>
           </form>
         )}
