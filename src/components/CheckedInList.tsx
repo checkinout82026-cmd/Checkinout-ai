@@ -87,7 +87,7 @@ export function CheckedInList() {
               </thead>
               <tbody className="divide-y divide-[#f2efe9]">
                 {checkedIn.map((item) => (
-                  <tr key={item.record.id} className="hover:bg-[#fdfcfb] transition-colors text-sm text-[#3c3c3b]">
+                  <tr key={item.record.id} className="hover:bg-[#e8f2f8] transition-colors text-sm text-[#3c3c3b]">
                     <td className="px-8 py-4 text-[#8c8a86] font-mono font-semibold">{item.student.id}</td>
                     <td className="px-8 py-4 font-medium">
                       {item.student.name}

@@ -233,7 +233,7 @@ export function AdminStaff() {
             </thead>
             <tbody className="divide-y divide-[#f2efe9] text-sm">
               {staffList.filter(u => u.role !== 'student').map(s => (
-                <tr key={s.id} className="hover:bg-[#fdfcfb] transition-colors text-[#3c3c3b]">
+                <tr key={s.id} className="hover:bg-[#e8f2f8] transition-colors text-[#3c3c3b]">
                   <td className="px-8 py-4 font-medium">
                     <div className="flex items-center gap-2">
                       <span>{s.name}</span>

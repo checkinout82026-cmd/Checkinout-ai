@@ -16,7 +16,7 @@ export function DashboardLayout({ user, onLogout, children, activeTab, setActive
   const isStudent = user.role === 'student';
 
   return (
-    <div className="min-h-screen bg-[#fdfcfb] flex flex-col md:flex-row text-[#3c3c3b] font-sans">
+    <div className="min-h-screen bg-[#2edaff] flex flex-col md:flex-row text-[#3c3c3b] font-sans">
       {/* Sidebar */}
       <aside className="w-full md:w-64 bg-white border-r border-[#e5e1da] text-[#8c8a86] flex flex-col shrink-0">
         <div className="p-6 border-b border-[#e5e1da]">

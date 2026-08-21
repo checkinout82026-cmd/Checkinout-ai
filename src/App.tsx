@@ -93,7 +93,7 @@ export default function App() {
 
   if (user.role === 'student') {
     return (
-      <div className="min-h-screen bg-[#fdfcfb] p-4 sm:p-8 flex flex-col justify-center">
+      <div className="min-h-screen bg-[#2edaff] p-4 sm:p-8 flex flex-col justify-center">
         <Toaster position="top-center" />
         <StudentDashboard user={user} onComplete={handleLogout} />
       </div>

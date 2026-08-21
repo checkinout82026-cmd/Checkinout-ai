@@ -369,7 +369,7 @@ export function AdminAttendance() {
                 const studentDisplayName = student ? student.name : (r.studentName || `ID: ${r.studentId}`);
                 const pickupName = r.pickupPerson || r.pickupPersonName;
                 return (
-                  <tr key={r.id} className="hover:bg-[#fdfcfb] transition-colors text-[#3c3c3b]">
+                  <tr key={r.id} className="hover:bg-[#e8f2f8] transition-colors text-[#3c3c3b]">
                     <td className="px-6 py-4 text-[#8c8a86] font-medium whitespace-nowrap">
                       {format(new Date(r.date + 'T12:00:00'), 'MMM d, yyyy')}
                     </td>

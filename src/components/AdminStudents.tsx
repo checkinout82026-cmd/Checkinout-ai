@@ -249,7 +249,7 @@ export function AdminStudents() {
                   <td colSpan={5} className="px-8 py-8 text-center text-[#8c8a86]">No student records found in database.</td>
                 </tr>
               ) : students.map(s => (
-                <tr key={s.id} className="hover:bg-[#fdfcfb] transition-colors text-[#3c3c3b]">
+                <tr key={s.id} className="hover:bg-[#e8f2f8] transition-colors text-[#3c3c3b]">
                   <td className="px-8 py-4 text-[#8c8a86] font-mono font-semibold">{s.id}</td>
                   <td className="px-8 py-4 font-medium">
                     {s.name}
