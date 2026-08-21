@@ -19,14 +19,20 @@ export function DashboardLayout({ user, onLogout, children, activeTab, setActive
     <div className="min-h-screen bg-[#fdfcfb] flex flex-col md:flex-row text-[#3c3c3b] font-sans">
       {/* Sidebar */}
       <aside className="w-full md:w-64 bg-white border-r border-[#e5e1da] text-[#8c8a86] flex flex-col shrink-0">
-        <div className="p-6 border-b border-[#e5e1da] flex items-center gap-3">
-          <div className="w-10 h-10 bg-[#82937f] rounded-xl flex items-center justify-center text-white font-bold text-xl">A</div>
-          <div>
-            <h2 className="text-xl font-serif font-medium tracking-tight text-[#4a4a48]">ABC School</h2>
-            <div className="mt-1 text-[10px] uppercase font-bold tracking-widest px-2 py-1 bg-[#f8f6f3] border border-[#edeae6] rounded-md inline-flex items-center gap-2 text-[#8c8a86]">
-              <span className="w-2 h-2 rounded-full bg-[#82937f]"></span>
-              {user.name} ({user.role})
-            </div>
+        <div className="p-6 border-b border-[#e5e1da]">
+          <img
+            src="/kumon_logo.webp"
+            alt="Kumon"
+            className="h-10 w-auto object-contain"
+          />
+
+          <h2 className="mt-2 text-2xl font-bold text-black">
+            Dublin - East
+          </h2>
+
+          <div className="mt-3 inline-flex items-center gap-2 px-3 py-2 bg-[#f8f6f3] border border-[#edeae6] rounded-md text-[10px] uppercase font-bold tracking-widest text-[#8c8a86]">
+            <span className="w-2 h-2 rounded-full bg-[#005BAC]"></span>
+            {user.name} ({user.role})
           </div>
         </div>
         
