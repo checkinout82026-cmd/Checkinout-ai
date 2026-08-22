@@ -150,6 +150,41 @@ export const db = {
     }
   },
 
+  loadStudentsFromFirestore: async (): Promise<Student[]> => {
+    try {
+      const studentsSnap = await getDocs(collection(firestore, 'students'));
+      if (!studentsSnap.empty) {
+        const list: Student[] = [];
+        studentsSnap.forEach(docSnap => {
+          const data = docSnap.data();
+          list.push({
+            id: data.id || docSnap.id,
+            name: data.name || data.fullName || '',
+            fullName: data.fullName || data.name || '',
+            gradeLevel: data.gradeLevel || '',
+            parent: data.parent || { name: data.parentName || '', phone: data.parentPhone || '', email: data.parentEmail || '' },
+            parentName: data.parentName || data.parent?.name || '',
+            parentPhone: data.parentPhone || data.parent?.phone || '',
+            parentEmail: data.parentEmail || data.parent?.email || '',
+            authorizedPickups: data.authorizedPickups || [],
+            authorizedPickupDetails: data.authorizedPickupDetails || [],
+            notes: data.notes || '',
+            isActive: data.isActive !== undefined ? data.isActive : true,
+            createdAt: data.createdAt,
+            updatedAt: data.updatedAt
+          });
+        });
+        cachedStudents = list;
+        localStorage.setItem(STUDENTS_KEY, JSON.stringify(list));
+        return list;
+      }
+      return db.getStudents();
+    } catch (err) {
+      console.warn('Firestore loadStudents error:', err);
+      return db.getStudents();
+    }
+  },
+
   getStudents: (): Student[] => {
     const data = localStorage.getItem(STUDENTS_KEY);
     if (data) {
@@ -515,7 +550,7 @@ export const db = {
       }
     }
     
-    // Enforce 10 students in local cache if larger or empty
+    // Students in local cache
     const localStudentsData = localStorage.getItem(STUDENTS_KEY);
     if (!localStudentsData) {
       localStorage.setItem(STUDENTS_KEY, JSON.stringify(defaultStudents));
@@ -523,12 +558,7 @@ export const db = {
     } else {
       try {
         const parsed = JSON.parse(localStudentsData);
-        if (parsed.length > 10) {
-          localStorage.setItem(STUDENTS_KEY, JSON.stringify(defaultStudents));
-          cachedStudents = defaultStudents;
-        } else {
-          cachedStudents = parsed;
-        }
+        cachedStudents = Array.isArray(parsed) && parsed.length > 0 ? parsed : defaultStudents;
       } catch {
         localStorage.setItem(STUDENTS_KEY, JSON.stringify(defaultStudents));
         cachedStudents = defaultStudents;
@@ -543,6 +573,7 @@ export const db = {
     // Check & seed Firestore collections
     try {
       await db.loadUsersFromFirestore();
+      await db.loadStudentsFromFirestore();
       const usersSnap = await getDocs(collection(firestore, 'users'));
 
       // Clean up legacy users (u1, u2, u3, u4) from Firestore
@@ -559,11 +590,8 @@ export const db = {
 
       const studentsSnap = await getDocs(collection(firestore, 'students'));
       if (studentsSnap.empty) {
-        console.log('Seeding initial 10 students to Firestore...');
+        console.log('Seeding initial students to Firestore...');
         await db.saveStudents(defaultStudents);
-      } else if (studentsSnap.size > 10) {
-        console.log(`Pruning excess students from Firestore (${studentsSnap.size} found, keeping 10)...`);
-        await db.resetTo10Students();
       }
 
       // Also seed authorized_pickups collection for relational representation

@@ -218,7 +218,6 @@ export function CheckInOut({ user }: { user: User }) {
                   >
                     <div>
                       <span className="font-semibold text-[#4a4a48]">{s.name}</span>
-                      <span className="text-xs text-[#8c8a86] ml-2">({s.gradeLevel || 'Student'})</span>
                       <div className="text-xs text-[#8c8a86]">
                         Parent: {s.parent?.name || s.parentName} • {s.parent?.phone || s.parentPhone}
                       </div>
@@ -262,7 +261,7 @@ export function CheckInOut({ user }: { user: User }) {
                   </p>
                   <p className="flex items-center gap-1.5 font-mono text-xs">
                     <Phone size={14} />
-                    {activeStudent.parent?.phone || activeStudent.parentPhone} • {activeStudent.gradeLevel || 'Grade K-8'}
+                    {activeStudent.parent?.phone || activeStudent.parentPhone}
                   </p>
                 </div>
               </div>

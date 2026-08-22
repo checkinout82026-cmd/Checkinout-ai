@@ -10,7 +10,6 @@ export function AdminStudents() {
   // Form State
   const [id, setId] = useState('');
   const [name, setName] = useState('');
-  const [gradeLevel, setGradeLevel] = useState('');
   const [parentName, setParentName] = useState('');
   const [parentPhone, setParentPhone] = useState('');
   const [parentEmail, setParentEmail] = useState('');
@@ -35,7 +34,6 @@ export function AdminStudents() {
       id: id.trim(),
       name: name.trim(),
       fullName: name.trim(),
-      gradeLevel: gradeLevel.trim(),
       parent: { 
         name: parentName.trim(), 
         phone: parentPhone.trim(), 
@@ -76,7 +74,6 @@ export function AdminStudents() {
     setIsEditing(student);
     setId(student.id);
     setName(student.name);
-    setGradeLevel(student.gradeLevel || '');
     setParentName(student.parent.name || student.parentName || '');
     setParentPhone(student.parent.phone || student.parentPhone || '');
     setParentEmail(student.parent.email || student.parentEmail || '');
@@ -95,21 +92,11 @@ export function AdminStudents() {
     setIsEditing(null);
     setId('');
     setName('');
-    setGradeLevel('');
     setParentName('');
     setParentPhone('');
     setParentEmail('');
     setPickups('');
     setNotes('');
-  };
-
-  const handleResetTo10 = async () => {
-    if (confirm('This will reset the student roster to the 10 default students and remove all other student records in Firebase. Continue?')) {
-      const loadingToast = toast.loading('Syncing 10 students to Firebase...');
-      await db.resetTo10Students();
-      toast.dismiss(loadingToast);
-      toast.success('Roster successfully updated to 10 students');
-    }
   };
 
   return (
@@ -124,13 +111,6 @@ export function AdminStudents() {
           </div>
           <p className="text-[#8c8a86] mt-1 text-sm">Add, edit, or remove student records with real-time Firebase synchronization.</p>
         </div>
-        <button
-          type="button"
-          onClick={handleResetTo10}
-          className="self-start sm:self-auto px-4 py-2.5 bg-[#f2efe9] hover:bg-[#edeae6] text-[#6b6966] font-medium text-xs rounded-xl transition-colors border border-[#e5e1da]"
-        >
-          Reset to 10 Students
-        </button>
       </div>
 
       <div className="bg-white p-6 rounded-[32px] border border-[#e5e1da] shadow-sm">
@@ -156,16 +136,6 @@ export function AdminStudents() {
               value={name} 
               onChange={e => setName(e.target.value)} 
               placeholder="e.g. Liam Parker"
-              className="w-full px-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b]" 
-            />
-          </div>
-          <div>
-            <label className="block text-[10px] uppercase tracking-widest text-[#8c8a86] font-bold mb-2">Grade / Class</label>
-            <input 
-              type="text" 
-              value={gradeLevel} 
-              onChange={e => setGradeLevel(e.target.value)} 
-              placeholder="e.g. Grade 3 / Room 102"
               className="w-full px-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b]" 
             />
           </div>
@@ -237,7 +207,7 @@ export function AdminStudents() {
             <thead className="bg-[#fcfaf7] text-[10px] uppercase tracking-widest text-[#8c8a86] font-bold border-b border-[#f2efe9]">
               <tr>
                 <th className="px-8 py-5">ID</th>
-                <th className="px-8 py-5">Name & Grade</th>
+                <th className="px-8 py-5">Student Name</th>
                 <th className="px-8 py-5">Parent & Contact</th>
                 <th className="px-8 py-5">Authorized Pickups</th>
                 <th className="px-8 py-5 text-right">Actions</th>
@@ -253,7 +223,6 @@ export function AdminStudents() {
                   <td className="px-8 py-4 text-[#8c8a86] font-mono font-semibold">{s.id}</td>
                   <td className="px-8 py-4 font-medium">
                     {s.name}
-                    {s.gradeLevel && <span className="block text-xs text-[#8c8a86] font-normal">{s.gradeLevel}</span>}
                   </td>
                   <td className="px-8 py-4">
                     {s.parent.name}

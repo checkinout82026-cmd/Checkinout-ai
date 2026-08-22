@@ -91,9 +91,6 @@ export function CheckedInList() {
                     <td className="px-8 py-4 text-[#8c8a86] font-mono font-semibold">{item.student.id}</td>
                     <td className="px-8 py-4 font-medium">
                       {item.student.name}
-                      {item.student.gradeLevel && (
-                        <span className="block text-xs text-[#8c8a86] font-normal">{item.student.gradeLevel}</span>
-                      )}
                     </td>
                     <td className="px-8 py-4 text-[#8c8a86]">
                       <span className="w-2 h-2 rounded-full bg-[#5c869e] inline-block mr-2"></span>

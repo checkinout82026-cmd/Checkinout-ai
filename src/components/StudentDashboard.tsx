@@ -228,8 +228,7 @@ export function StudentDashboard({ user, onComplete }: StudentDashboardProps) {
         </div>
         
         <h2 className="text-2xl font-serif font-semibold text-[#4a4a48]">{student.name}</h2>
-        <p className="font-mono text-sm text-[#8c8a86] mb-1">Student ID: {student.id}</p>
-        {student.gradeLevel && <p className="text-xs text-[#8c8a86] mb-2">{student.gradeLevel}</p>}
+        <p className="font-mono text-sm text-[#8c8a86] mb-3">Student ID: {student.id}</p>
 
         {/* Parent / Guardian Information */}
         <div className="max-w-md mx-auto mb-6 p-3 bg-white rounded-2xl border border-[#edeae6] text-xs text-[#8c8a86] flex items-center justify-between">
