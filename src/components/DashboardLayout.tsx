@@ -1,6 +1,6 @@
 import React from 'react';
 import { User } from '../types';
-import { LogOut, LayoutDashboard, Users, Clock, ShieldCheck, Database } from 'lucide-react';
+import { LogOut, LayoutDashboard, Users, Clock, ShieldCheck, ArrowUpRight } from 'lucide-react';
 
 interface LayoutProps {
   user: User;
@@ -8,12 +8,12 @@ interface LayoutProps {
   children: React.ReactNode;
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  onLaunchKiosk?: () => void;
 }
 
-export function DashboardLayout({ user, onLogout, children, activeTab, setActiveTab }: LayoutProps) {
+export function DashboardLayout({ user, onLogout, children, activeTab, setActiveTab, onLaunchKiosk }: LayoutProps) {
   const isStaff = user.role === 'staff';
   const isAdmin = user.role === 'admin';
-  const isStudent = user.role === 'student';
 
   return (
     <div className="min-h-screen bg-[#2edaff] flex flex-col md:flex-row text-[#3c3c3b] font-sans">
@@ -34,24 +34,28 @@ export function DashboardLayout({ user, onLogout, children, activeTab, setActive
             <span className="w-2 h-2 rounded-full bg-[#005BAC]"></span>
             {user.name} ({user.role})
           </div>
+
+          {/* Quick Launch Student Kiosk Button */}
+          {onLaunchKiosk && (
+            <button
+              onClick={onLaunchKiosk}
+              className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#5c869e] hover:opacity-90 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
+            >
+              <Clock size={15} />
+              Open Student Kiosk
+              <ArrowUpRight size={14} className="opacity-75" />
+            </button>
+          )}
         </div>
         
         <nav className="flex-1 p-4 space-y-1">
           {isStaff && (
-            <>
-              <NavItem 
-                icon={<Clock size={18} />} 
-                label="Check In / Out" 
-                active={activeTab === 'checkin'} 
-                onClick={() => setActiveTab('checkin')} 
-              />
-              <NavItem 
-                icon={<Users size={18} />} 
-                label="Checked-In List" 
-                active={activeTab === 'checkedin'} 
-                onClick={() => setActiveTab('checkedin')} 
-              />
-            </>
+            <NavItem 
+              icon={<Users size={18} />} 
+              label="Checked-In List" 
+              active={activeTab === 'checkedin'} 
+              onClick={() => setActiveTab('checkedin')} 
+            />
           )}
           {isAdmin && (
             <>
@@ -60,6 +64,12 @@ export function DashboardLayout({ user, onLogout, children, activeTab, setActive
                 label="Attendance Records" 
                 active={activeTab === 'attendance'} 
                 onClick={() => setActiveTab('attendance')} 
+              />
+              <NavItem 
+                icon={<Users size={18} />} 
+                label="Checked-In Live Roster" 
+                active={activeTab === 'checkedin'} 
+                onClick={() => setActiveTab('checkedin')} 
               />
               <NavItem 
                 icon={<Users size={18} />} 
@@ -75,22 +85,12 @@ export function DashboardLayout({ user, onLogout, children, activeTab, setActive
               />
             </>
           )}
-          {isStudent && (
-            <>
-              <NavItem 
-                icon={<LayoutDashboard size={18} />} 
-                label="Self-Service Check-In" 
-                active={activeTab === 'student_dashboard'} 
-                onClick={() => setActiveTab('student_dashboard')} 
-              />
-            </>
-          )}
         </nav>
 
         <div className="p-4 border-t border-[#e5e1da] space-y-3">
           <button 
             onClick={onLogout}
-            className="flex items-center gap-3 w-full px-4 py-2.5 text-sm font-medium rounded-lg text-[#d98466] hover:bg-[#f2efe9] transition-colors"
+            className="flex items-center gap-3 w-full px-4 py-2.5 text-sm font-medium rounded-lg text-[#d98466] hover:bg-[#f2efe9] transition-colors cursor-pointer"
           >
             <LogOut size={18} />
             Sign Out
@@ -112,7 +112,7 @@ function NavItem({ icon, label, active, onClick }: { icon: React.ReactNode, labe
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+      className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
         active 
           ? 'bg-[#5c869e] text-white' 
           : 'text-[#8c8a86] hover:bg-[#f8f6f3] hover:text-[#3c3c3b]'

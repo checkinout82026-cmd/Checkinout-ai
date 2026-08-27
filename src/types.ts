@@ -19,6 +19,7 @@ export interface User {
 export interface Parent {
   name: string;
   phone: string;
+  phone2?: string;
   email?: string;
 }
 
@@ -42,6 +43,7 @@ export interface Student {
   parent: Parent;
   parentName?: string;
   parentPhone?: string;
+  parentPhone2?: string;
   parentEmail?: string;
   authorizedPickups: string[]; // List of names or descriptions
   authorizedPickupDetails?: AuthorizedPickupPerson[];
@@ -69,6 +71,7 @@ export interface AttendanceRecord {
   pickupPersonName?: string;
   smsNotificationSent?: boolean;
   smsSentAt?: string;
+  smsRecipientPhone?: string;
   notes?: string;
   createdAt?: string;
   updatedAt?: string;

@@ -157,14 +157,22 @@ export const db = {
         const list: Student[] = [];
         studentsSnap.forEach(docSnap => {
           const data = docSnap.data();
+          const pPhone = data.parentPhone || data.parent?.phone || '';
+          const pPhone2 = data.parentPhone2 || data.parent?.phone2 || '';
           list.push({
             id: data.id || docSnap.id,
             name: data.name || data.fullName || '',
             fullName: data.fullName || data.name || '',
             gradeLevel: data.gradeLevel || '',
-            parent: data.parent || { name: data.parentName || '', phone: data.parentPhone || '', email: data.parentEmail || '' },
+            parent: data.parent || { 
+              name: data.parentName || '', 
+              phone: pPhone, 
+              phone2: pPhone2,
+              email: data.parentEmail || '' 
+            },
             parentName: data.parentName || data.parent?.name || '',
-            parentPhone: data.parentPhone || data.parent?.phone || '',
+            parentPhone: pPhone,
+            parentPhone2: pPhone2,
             parentEmail: data.parentEmail || data.parent?.email || '',
             authorizedPickups: data.authorizedPickups || [],
             authorizedPickupDetails: data.authorizedPickupDetails || [],
@@ -204,6 +212,8 @@ export const db = {
       const batch = writeBatch(firestore);
       students.forEach(s => {
         const ref = doc(firestore, 'students', s.id);
+        const pPhone = s.parentPhone || s.parent?.phone || '';
+        const pPhone2 = s.parentPhone2 || s.parent?.phone2 || '';
         batch.set(ref, {
           id: s.id,
           userId: s.userId || null,
@@ -211,9 +221,15 @@ export const db = {
           fullName: s.fullName || s.name || '',
           gradeLevel: s.gradeLevel || '',
           parentName: s.parentName || s.parent?.name || '',
-          parentPhone: s.parentPhone || s.parent?.phone || '',
+          parentPhone: pPhone,
+          parentPhone2: pPhone2,
           parentEmail: s.parentEmail || s.parent?.email || '',
-          parent: s.parent,
+          parent: {
+            name: s.parent?.name || s.parentName || '',
+            phone: pPhone,
+            phone2: pPhone2,
+            email: s.parent?.email || s.parentEmail || ''
+          },
           authorizedPickups: s.authorizedPickups || [],
           authorizedPickupDetails: s.authorizedPickupDetails || [],
           notes: s.notes || '',
@@ -243,6 +259,8 @@ export const db = {
 
     try {
       const ref = doc(firestore, 'students', student.id);
+      const pPhone = student.parentPhone || student.parent?.phone || '';
+      const pPhone2 = student.parentPhone2 || student.parent?.phone2 || '';
       await setDoc(ref, {
         id: student.id,
         userId: student.userId || null,
@@ -250,9 +268,15 @@ export const db = {
         fullName: student.fullName || student.name || '',
         gradeLevel: student.gradeLevel || '',
         parentName: student.parentName || student.parent?.name || '',
-        parentPhone: student.parentPhone || student.parent?.phone || '',
+        parentPhone: pPhone,
+        parentPhone2: pPhone2,
         parentEmail: student.parentEmail || student.parent?.email || '',
-        parent: student.parent,
+        parent: {
+          name: student.parent?.name || student.parentName || '',
+          phone: pPhone,
+          phone2: pPhone2,
+          email: student.parent?.email || student.parentEmail || ''
+        },
         authorizedPickups: student.authorizedPickups || [],
         authorizedPickupDetails: student.authorizedPickupDetails || [],
         notes: student.notes || '',
@@ -377,6 +401,38 @@ export const db = {
     }
   },
 
+  deleteAttendanceRecords: async (ids: string[]) => {
+    if (!ids.length) return;
+    const idSet = new Set(ids);
+    const current = db.getAttendance().filter(r => !idSet.has(r.id));
+    cachedAttendance = current;
+    localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(current));
+    try {
+      const batch = writeBatch(firestore);
+      ids.forEach(id => {
+        batch.delete(doc(firestore, 'attendance', id));
+      });
+      await batch.commit();
+    } catch (err) {
+      console.warn('Firestore deleteAttendanceRecords error:', err);
+    }
+  },
+
+  clearAllAttendance: async () => {
+    cachedAttendance = [];
+    localStorage.removeItem(ATTENDANCE_KEY);
+    try {
+      const snap = await getDocs(collection(firestore, 'attendance'));
+      const batch = writeBatch(firestore);
+      snap.forEach(d => {
+        batch.delete(d.ref);
+      });
+      await batch.commit();
+    } catch (err) {
+      console.warn('Firestore clearAllAttendance error:', err);
+    }
+  },
+
   seed10Students: async () => {
     const list = generate10Students();
     await db.saveStudents(list);
@@ -459,14 +515,22 @@ export const db = {
           const list: Student[] = [];
           snapshot.forEach(docSnap => {
             const data = docSnap.data();
+            const pPhone = data.parentPhone || data.parent?.phone || '';
+            const pPhone2 = data.parentPhone2 || data.parent?.phone2 || '';
             list.push({
               id: data.id || docSnap.id,
               name: data.name || data.fullName || '',
               fullName: data.fullName || data.name || '',
               gradeLevel: data.gradeLevel || '',
-              parent: data.parent || { name: data.parentName || '', phone: data.parentPhone || '', email: data.parentEmail || '' },
+              parent: data.parent || { 
+                name: data.parentName || '', 
+                phone: pPhone, 
+                phone2: pPhone2,
+                email: data.parentEmail || '' 
+              },
               parentName: data.parentName || data.parent?.name || '',
-              parentPhone: data.parentPhone || data.parent?.phone || '',
+              parentPhone: pPhone,
+              parentPhone2: pPhone2,
               parentEmail: data.parentEmail || data.parent?.email || '',
               authorizedPickups: data.authorizedPickups || [],
               authorizedPickupDetails: data.authorizedPickupDetails || [],

@@ -1,233 +1,45 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { db } from '../lib/db';
-import { signInWithEmail, signInWithGoogle, sendPasswordReset } from '../lib/auth';
-import { User, Student, AttendanceRecord } from '../types';
+import React, { useState } from 'react';
+import { signInWithEmail } from '../lib/auth';
+import { User } from '../types';
 import toast from 'react-hot-toast';
-import { format } from 'date-fns';
-import { Database, Shield, GraduationCap, Lock, Mail, KeyRound, ArrowLeft, Loader2, CheckCircle2, LogOut, Clock, Smartphone, UserCheck } from 'lucide-react';
+import { Shield, Lock, User as UserIcon, Loader2, Eye, EyeOff, ArrowRight, Clock, LayoutDashboard } from 'lucide-react';
 
 interface LoginProps {
-  onLogin: (user: User) => void;
-}
-
-interface StudentActionResult {
-  studentName: string;
-  studentId: string;
-  type: 'check-in' | 'check-out';
-  time: string;
-  parentPhone: string;
-  parentName: string;
+  onLogin: (user: User, targetMode: 'kiosk' | 'dashboard') => void;
 }
 
 export function Login({ onLogin }: LoginProps) {
-  const [mode, setMode] = useState<'student' | 'staff'>('student');
-  const [staffAuthMode, setStaffAuthMode] = useState<'signin' | 'forgot'>('signin');
-  
-  // Input fields
+  const [targetMode, setTargetMode] = useState<'kiosk' | 'dashboard'>('kiosk');
   const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [students, setStudents] = useState<Student[]>([]);
-  const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
-  
-  // Direct Check-In / Check-Out confirmation state for student terminal
-  const [actionStatus, setActionStatus] = useState<StudentActionResult | null>(null);
-  const [actionCountdown, setActionCountdown] = useState<number>(3);
-  const [isSubmittingStudent, setIsSubmittingStudent] = useState(false);
-  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    // Subscribe to Firestore for real-time credentials and student search
-    const unsubStudents = db.subscribeStudents((list) => {
-      setStudents(list);
-    });
-
-    const unsubAttendance = db.subscribeAttendance((list) => {
-      setAttendance(list);
-    });
-
-    return () => {
-      if (typeof unsubStudents === 'function') unsubStudents();
-      if (typeof unsubAttendance === 'function') unsubAttendance();
-      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-    };
-  }, []);
-
-  // Handle direct 1-step Student Check-In or Check-Out (by ID)
-  const handleStudentSubmit = async (e: React.FormEvent) => {
+  // Handle Staff/Admin Sign In using Username & Password
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSubmittingStudent) return;
-
-    const student = students.find(s => s.id.toLowerCase() === username.trim().toLowerCase());
-    if (!student) {
-      toast.error('Student ID not found in database');
+    const cleanUsername = username.trim();
+    if (!cleanUsername) {
+      toast.error('Please enter your username');
+      return;
+    }
+    if (!password) {
+      toast.error('Please enter your password');
       return;
     }
 
-    setIsSubmittingStudent(true);
-
-    try {
-      const today = format(new Date(), 'yyyy-MM-dd');
-      const now = new Date().toISOString();
-      const timeFormatted = format(new Date(now), 'h:mm a');
-      const existingRecord = attendance.find(r => r.studentId === student.id && r.date === today);
-      const parentPhone = student.parent?.phone || student.parentPhone || 'Parent Contact';
-      const parentName = student.parent?.name || student.parentName || 'Parent';
-
-      const isCheckingOut = existingRecord && !existingRecord.checkOutTime;
-
-      if (isCheckingOut) {
-        // Direct CHECK OUT
-        const updatedRecord: AttendanceRecord = {
-          ...existingRecord,
-          status: 'checked_out',
-          checkOutTime: now,
-          checkOutStaffId: 'kiosk',
-          checkOutStaffName: 'Student Kiosk Terminal',
-          pickupPerson: parentName,
-          pickupPersonName: parentName,
-          smsNotificationSent: true,
-          smsSentAt: now,
-          updatedAt: now
-        };
-
-        await db.saveAttendanceRecord(updatedRecord);
-
-        // Top SMS toast notification
-        toast.success(
-          `Check-out recorded! SMS automatically sent to ${parentPhone}`,
-          { duration: 4000, icon: '📱' }
-        );
-
-        setActionStatus({
-          studentName: student.name,
-          studentId: student.id,
-          type: 'check-out',
-          time: timeFormatted,
-          parentPhone,
-          parentName
-        });
-      } else {
-        // Direct CHECK IN
-        const newRecord: AttendanceRecord = {
-          id: existingRecord?.id || crypto.randomUUID(),
-          studentId: student.id,
-          studentName: student.name,
-          date: today,
-          status: 'checked_in',
-          checkInTime: now,
-          checkInMethod: 'student_self',
-          checkOutTime: null,
-          smsNotificationSent: true,
-          smsSentAt: now,
-          createdAt: existingRecord?.createdAt || now,
-          updatedAt: now
-        };
-
-        await db.saveAttendanceRecord(newRecord);
-
-        // Top SMS toast notification
-        toast.success(
-          `Check-in recorded! SMS automatically sent to ${parentPhone}`,
-          { duration: 4000, icon: '📱' }
-        );
-
-        setActionStatus({
-          studentName: student.name,
-          studentId: student.id,
-          type: 'check-in',
-          time: timeFormatted,
-          parentPhone,
-          parentName
-        });
-      }
-
-      // Reset student ID input field
-      setUsername('');
-
-      // Trigger automatic 3s countdown for next student
-      setActionCountdown(3);
-      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-
-      let count = 3;
-      countdownIntervalRef.current = setInterval(() => {
-        count -= 1;
-        setActionCountdown(count);
-        if (count <= 0) {
-          if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-          setActionStatus(null);
-        }
-      }, 1000);
-
-    } catch (err) {
-      console.error('Error processing student attendance:', err);
-      toast.error('Failed to record attendance. Please try again.');
-    } finally {
-      setIsSubmittingStudent(false);
-    }
-  };
-
-  const handleDismissConfirmation = () => {
-    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-    setActionStatus(null);
-  };
-
-  // Handle Staff/Admin Firebase Email/Password Sign In
-  const handleStaffSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
     setLoading(true);
     try {
-      const user = await signInWithEmail(email || username, password);
-      toast.success(`Welcome back, ${user.name} (${user.role})`);
-      onLogin(user);
+      const user = await signInWithEmail(cleanUsername, password);
+      toast.success(`Welcome, ${user.name}! Opening ${targetMode === 'kiosk' ? 'Check-In Kiosk' : 'Management Dashboard'}`);
+      onLogin(user, targetMode);
     } catch (err: any) {
       console.error('Sign in notice:', err);
-      let errorMsg = err?.message || 'Invalid email or password';
-      if (err.code === 'auth/invalid-email') errorMsg = 'Invalid email address format';
+      let errorMsg = err?.message || 'Invalid username or password';
       if (err.code === 'auth/wrong-password') errorMsg = 'Incorrect password';
-      if (err.code === 'auth/user-not-found') errorMsg = 'No account found with this email';
-      if (err.code === 'auth/too-many-requests') errorMsg = 'Too many attempts. Please wait or reset password';
-      if (err.code === 'auth/operation-not-allowed') errorMsg = 'Email/Password sign-in provider is not enabled in Firebase Console. Authenticating with school registry...';
+      if (err.code === 'auth/user-not-found') errorMsg = 'No account found with this username';
+      if (err.code === 'auth/too-many-requests') errorMsg = 'Too many attempts. Please try again in a moment';
       toast.error(errorMsg);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Handle Google Sign-In with Firebase Popup
-  const handleGoogleSignIn = async () => {
-    setLoading(true);
-    try {
-      const user = await signInWithGoogle('staff');
-      toast.success(`Signed in with Google as ${user.name}`);
-      onLogin(user);
-    } catch (err: any) {
-      console.error('Google sign in error:', err);
-      if (err.code !== 'auth/popup-closed-by-user') {
-        toast.error('Google sign-in was canceled or failed');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Handle Password Reset Email
-  const handleForgotPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email && !username) {
-      toast.error('Please enter your email address');
-      return;
-    }
-    setLoading(true);
-    try {
-      await sendPasswordReset(email || username);
-      toast.success('Password reset link sent to your email!');
-      setStaffAuthMode('signin');
-    } catch (err: any) {
-      console.error('Password reset error:', err);
-      toast.error('Could not send reset email. Verify the email address.');
     } finally {
       setLoading(false);
     }
@@ -235,300 +47,147 @@ export function Login({ onLogin }: LoginProps) {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#2edaff] text-[#3c3c3b] font-sans p-4">
-      <div className="w-full max-w-md bg-white p-8 rounded-[32px] shadow-sm border border-[#e5e1da]">
+      <div className="w-full max-w-md bg-white p-7 sm:p-9 rounded-[36px] shadow-xl border border-[#e5e1da] animate-in fade-in zoom-in-95 duration-200">
         {/* Header Branding */}
         <div className="text-center mb-6">
-          {/* Kumon Logo */}
           <img
-            src="/kumon_logo.webp" // Update this path based on where you store the logo
+            src="/kumon_logo.webp"
             alt="Kumon Dublin - East"
-            className="mx-auto h-24 w-auto object-contain mb-4"
+            className="mx-auto h-18 w-auto object-contain mb-2"
           />
 
-          {/* Location */}
-          <h1 className="text-3xl font-bold text-black">
+          <h1 className="text-2xl sm:text-3xl font-serif font-bold text-black tracking-tight">
             Dublin - East
           </h1>
         </div>
 
-        {/* Top Role Selector */}
-        <div className="flex bg-[#f8f6f3] p-1.5 rounded-2xl mb-6">
+        {/* Portal Mode Selector (Kiosk vs Management Dashboard) */}
+        <div className="bg-[#f8f6f3] p-1.5 rounded-2xl border border-[#e5e1da] grid grid-cols-2 gap-1.5 mb-6">
           <button
             type="button"
-            onClick={() => { setMode('student'); setStaffAuthMode('signin'); }}
-            className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${
-              mode === 'student' ? 'bg-white shadow-sm text-[#4a4a48]' : 'text-[#8c8a86] hover:text-[#4a4a48]'
+            onClick={() => setTargetMode('kiosk')}
+            className={`py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              targetMode === 'kiosk'
+                ? 'bg-[#5c869e] text-white shadow-sm'
+                : 'text-[#8c8a86] hover:text-[#3c3c3b]'
             }`}
           >
-            <GraduationCap size={16} />
-            Student Check-In
+            <Clock size={15} />
+            Check-In Kiosk
           </button>
           <button
             type="button"
-            onClick={() => setMode('staff')}
-            className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${
-              mode === 'staff' ? 'bg-white shadow-sm text-[#4a4a48]' : 'text-[#8c8a86] hover:text-[#4a4a48]'
+            onClick={() => setTargetMode('dashboard')}
+            className={`py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              targetMode === 'dashboard'
+                ? 'bg-[#5c869e] text-white shadow-sm'
+                : 'text-[#8c8a86] hover:text-[#3c3c3b]'
             }`}
           >
-            <Shield size={16} />
-            Staff / Admin
+            <LayoutDashboard size={15} />
+            Management Portal
           </button>
         </div>
 
-        {/* STUDENT MODE */}
-        {mode === 'student' && (
-          <div>
-            {actionStatus ? (
-              /* Success Confirmation Banner */
-              <div className="text-center py-4 space-y-4 animate-in fade-in zoom-in-95">
-                <div className="w-16 h-16 bg-[#5c869e]/15 text-[#5c869e] rounded-full flex items-center justify-center mx-auto">
-                  <CheckCircle2 size={36} />
-                </div>
-                
-                <div>
-                  <span className="inline-block px-3 py-1 bg-[#5c869e]/10 text-[#5c869e] text-xs font-bold uppercase tracking-wider rounded-full mb-1">
-                    {actionStatus.type === 'check-in' ? 'Check-In Recorded' : 'Check-Out Approved'}
-                  </span>
-                  <h2 className="text-2xl font-bold text-[#3c3c3b]">
-                    {actionStatus.studentName}
-                  </h2>
-                  <p className="text-xs text-[#8c8a86] font-mono mt-0.5">
-                    Student ID: {actionStatus.studentId}
-                  </p>
-                </div>
-
-                <div className="bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl p-4 text-left space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-[#8c8a86] flex items-center gap-1.5 font-medium">
-                      <Clock size={14} /> Time:
-                    </span>
-                    <span className="font-bold text-[#3c3c3b] font-mono">{actionStatus.time}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs pt-1 border-t border-[#e5e1da]">
-                    <span className="text-[#8c8a86] flex items-center gap-1.5 font-medium">
-                      <Smartphone size={14} /> SMS Dispatched:
-                    </span>
-                    <span className="font-semibold text-[#5c869e] text-right truncate max-w-[180px]">
-                      {actionStatus.parentPhone}
-                    </span>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleDismissConfirmation}
-                  className="w-full py-3.5 bg-[#5c869e] hover:opacity-90 text-white font-bold rounded-2xl transition-all flex items-center justify-center gap-2 cursor-pointer text-sm shadow-sm"
-                >
-                  <UserCheck size={16} />
-                  Done / Next Student ({actionCountdown}s)
-                </button>
+        {/* Dynamic Mode Caption */}
+        <div className="text-center mb-5">
+          {targetMode === 'kiosk' ? (
+            <div className="space-y-1">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#5c869e]/10 text-[#4b6573] rounded-full text-[11px] font-bold uppercase tracking-wider">
+                <Clock size={13} className="text-[#5c869e]" />
+                Staff Check-In Kiosk
               </div>
-            ) : (() => {
-              const matchedStudent = username.trim() ? students.find(s => s.id.toLowerCase() === username.trim().toLowerCase()) : null;
-              const today = format(new Date(), 'yyyy-MM-dd');
-              const todayRecord = matchedStudent ? attendance.find(r => r.studentId === matchedStudent.id && r.date === today) : null;
-              const isCheckedIn = todayRecord && !todayRecord.checkOutTime;
-              const isCheckedOut = todayRecord && Boolean(todayRecord.checkOutTime);
-              
-              const buttonText = isCheckedIn ? 'Check out' : isCheckedOut ? 'Check In Again' : 'Check In';
-              const buttonBg = isCheckedIn ? 'bg-[#d98466]' : 'bg-[#5c869e]';
+              <p className="text-xs text-[#8c8a86] mt-1">
+                Unlock the dedicated student check-in &amp; check-out kiosk.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#5c869e]/10 text-[#4b6573] rounded-full text-[11px] font-bold uppercase tracking-wider">
+                <Shield size={13} className="text-[#5c869e]" />
+                Admin &amp; Staff Dashboard
+              </div>
+              <p className="text-xs text-[#8c8a86] mt-1">
+                Access attendance logs, roster, staff accounts, and reports.
+              </p>
+            </div>
+          )}
+        </div>
 
-              return (
-                <form onSubmit={handleStudentSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-widest text-[#8c8a86] font-bold mb-2">
-                      Student ID #
-                    </label>
-                    <input
-                      type="text"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      className="w-full px-5 py-3.5 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl focus:ring-2 focus:ring-[#5c869e] focus:border-[#5c869e] outline-none transition-all text-[#3c3c3b] font-mono text-lg"
-                      placeholder="e.g. 10001"
-                      autoFocus
-                      required
-                      disabled={isSubmittingStudent}
-                    />
-
-                    {/* Student Lookup Preview */}
-                    {username.trim() && (() => {
-                      if (matchedStudent) {
-                        return (
-                          <div className="mt-3 p-3.5 bg-[#5c869e10] border border-[#5c869e30] rounded-2xl animate-in fade-in slide-in-from-top-1 text-left">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold text-[#5c869e] uppercase tracking-wider">Student Found</span>
-                              <span className="text-[11px] font-mono font-bold text-[#8c8a86]">ID: {matchedStudent.id}</span>
-                            </div>
-                            <div className="text-base font-serif font-bold text-[#4a4a48] mt-0.5">{matchedStudent.name}</div>
-                            <div className="text-xs text-[#8c8a86] mt-1 space-y-0.5">
-                              <div><span className="font-semibold text-[#4a4a48]">Parent/Guardian:</span> {matchedStudent.parent?.name || matchedStudent.parentName || 'N/A'} ({matchedStudent.parent?.phone || matchedStudent.parentPhone || 'No phone'})</div>
-                              <div className="pt-1 text-[11px]">
-                                {isCheckedIn && (
-                                  <span className="inline-flex items-center gap-1 text-[#2e7d32] font-semibold">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-[#2e7d32]"></span>
-                                    Currently checked in (at {todayRecord?.checkInTime ? format(new Date(todayRecord.checkInTime), 'h:mm a') : 'today'})
-                                  </span>
-                                )}
-                                {isCheckedOut && (
-                                  <span className="inline-flex items-center gap-1 text-[#8c8a86] font-medium">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-[#8c8a86]"></span>
-                                    Completed for today (Out at {todayRecord?.checkOutTime ? format(new Date(todayRecord.checkOutTime), 'h:mm a') : ''})
-                                  </span>
-                                )}
-                                {!todayRecord && (
-                                  <span className="inline-flex items-center gap-1 text-[#5c869e] font-medium">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-[#5c869e]"></span>
-                                    Ready for today's check-in
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      }
-                      const partialMatches = students.filter(s => s.id.includes(username.trim()) || s.name.toLowerCase().includes(username.trim().toLowerCase())).slice(0, 3);
-                      if (partialMatches.length > 0) {
-                        return (
-                          <div className="mt-2 text-xs text-[#8c8a86]">
-                            <span className="font-semibold">Quick select: </span>
-                            {partialMatches.map(s => (
-                              <button
-                                key={s.id}
-                                type="button"
-                                onClick={() => setUsername(s.id)}
-                                className="mr-2 underline hover:text-[#5c869e] font-mono"
-                              >
-                                {s.id} ({s.name})
-                              </button>
-                            ))}
-                          </div>
-                        );
-                      }
-                      return null;
-                    })()}
-                  </div>
-
-                  {matchedStudent && (
-                    <button
-                      type="submit"
-                      disabled={isSubmittingStudent}
-                      className={`w-full ${buttonBg} hover:opacity-90 text-white font-bold py-4 rounded-2xl transition-all mt-4 flex items-center justify-center gap-2 cursor-pointer shadow-sm disabled:opacity-50`}
-                    >
-                      {isSubmittingStudent ? (
-                        <>
-                          <Loader2 size={18} className="animate-spin" />
-                          Processing...
-                        </>
-                      ) : isCheckedIn ? (
-                        <>
-                          <LogOut size={18} />
-                          {buttonText}
-                        </>
-                      ) : (
-                        <>
-                          <GraduationCap size={18} />
-                          {buttonText}
-                        </>
-                      )}
-                    </button>
-                  )}
-                </form>
-              );
-            })()}
-          </div>
-        )}
-
-        {/* STAFF & ADMIN AUTH MODES */}
-        {mode === 'staff' && (
+        {/* SIGN IN FORM */}
+        <form onSubmit={handleSignIn} className="space-y-4">
           <div>
-            {/* FORGOT PASSWORD FORM */}
-            {staffAuthMode === 'forgot' ? (
-              <form onSubmit={handleForgotPassword} className="space-y-4 animate-in fade-in">
-                <button
-                  type="button"
-                  onClick={() => setStaffAuthMode('signin')}
-                  className="inline-flex items-center gap-1.5 text-xs text-[#8c8a86] hover:text-[#4a4a48] font-bold mb-2 cursor-pointer"
-                >
-                  <ArrowLeft size={14} /> Back to Sign In
-                </button>
-                <h2 className="text-base font-serif font-semibold text-[#4a4a48]">Reset Staff / Admin Password</h2>
-                <p className="text-xs text-[#8c8a86]">
-                  Enter your registered email address to receive an official Firebase password reset link.
-                </p>
-                <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-[#8c8a86] font-bold mb-2">Email Address</label>
-                  <div className="relative">
-                    <input
-                      type="email"
-                      required
-                      value={email}
-                      onChange={e => setEmail(e.target.value)}
-                      placeholder="smith.admin@school.com"
-                      className="w-full px-5 py-3.5 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl focus:ring-2 focus:ring-[#5c869e] outline-none text-[#3c3c3b]"
-                    />
-                    <Mail size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8c8a86]" />
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-[#5c869e] hover:opacity-90 text-white font-bold py-3.5 rounded-2xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
-                >
-                  {loading ? <Loader2 size={18} className="animate-spin" /> : <KeyRound size={18} />}
-                  Send Password Reset Link
-                </button>
-              </form>
-            ) : (
-              /* SIGN IN FORM (NO PUBLIC CREATE ACCOUNT) */
-              <form onSubmit={handleStaffSignIn} className="space-y-4">
-                <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-[#8c8a86] font-bold mb-2">Email Address</label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={email || username}
-                      onChange={(e) => {
-                        setEmail(e.target.value);
-                        setUsername(e.target.value);
-                      }}
-                      className="w-full px-5 py-3.5 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl focus:ring-2 focus:ring-[#5c869e] focus:border-[#5c869e] outline-none transition-all text-[#3c3c3b]"
-                      placeholder="smith.admin@school.com"
-                      required
-                    />
-                    <Mail size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8c8a86]" />
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-[10px] uppercase tracking-widest text-[#8c8a86] font-bold">Password</label>
-                  </div>
-                  <div className="relative">
-                    <input
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full px-5 py-3.5 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl focus:ring-2 focus:ring-[#5c869e] focus:border-[#5c869e] outline-none transition-all text-[#3c3c3b]"
-                      placeholder="••••••••"
-                      required
-                    />
-                    <Lock size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8c8a86]" />
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-[#5c869e] hover:opacity-90 text-white font-bold py-4 rounded-2xl transition-all mt-2 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
-                >
-                  {loading ? <Loader2 size={18} className="animate-spin" /> : <Shield size={18} />}
-                  Sign In 
-                </button>
-              </form>
-            )}
+            <label className="block text-[10px] uppercase tracking-widest text-[#8c8a86] font-bold mb-2">
+              Username
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full pl-11 pr-4 py-3.5 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl focus:ring-2 focus:ring-[#5c869e] focus:border-[#5c869e] outline-none transition-all text-[#3c3c3b] font-medium"
+                placeholder="Enter your username"
+                autoFocus
+                required
+                disabled={loading}
+              />
+              <UserIcon size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8c8a86]" />
+            </div>
           </div>
-        )}
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-[10px] uppercase tracking-widest text-[#8c8a86] font-bold">
+                Password
+              </label>
+            </div>
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full pl-11 pr-12 py-3.5 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl focus:ring-2 focus:ring-[#5c869e] focus:border-[#5c869e] outline-none transition-all text-[#3c3c3b] font-medium font-mono"
+                placeholder="••••••••"
+                required
+                disabled={loading}
+              />
+              <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8c8a86]" />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8c8a86] hover:text-[#3c3c3b] p-1 cursor-pointer transition-colors"
+                title={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-[#5c869e] hover:opacity-90 active:scale-[0.99] text-white font-bold py-4 rounded-2xl transition-all mt-3 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer shadow-sm text-sm"
+          >
+            {loading ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                Signing In...
+              </>
+            ) : targetMode === 'kiosk' ? (
+              <>
+                <Clock size={18} />
+                Launch Check-In Kiosk
+                <ArrowRight size={16} />
+              </>
+            ) : (
+              <>
+                <Shield size={18} />
+                Open Management Dashboard
+                <ArrowRight size={16} />
+              </>
+            )}
+          </button>
+        </form>
       </div>
     </div>
   );

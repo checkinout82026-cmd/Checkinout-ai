@@ -106,8 +106,8 @@ export function StudentDashboard({ user, onComplete }: StudentDashboardProps) {
       setTodayRecord(newRecord);
       setStatus('checked-in');
       toast.success(
-        `Check-in recorded! SMS automatically sent to ${student.parent?.phone || student.parentPhone || 'Parent'}`, 
-        { duration: 4000, icon: '📱' }
+        `Check-in recorded! Welcome, ${student.name}`, 
+        { duration: 3500, icon: '✅' }
       );
       triggerAutoReturn();
     } catch (err) {

@@ -12,22 +12,28 @@ import { AdminStudents } from './components/AdminStudents';
 import { AdminStaff } from './components/AdminStaff';
 import { AdminAttendance } from './components/AdminAttendance';
 import { StudentDashboard } from './components/StudentDashboard';
+import { Clock, LayoutDashboard, Lock, LogOut, Shield } from 'lucide-react';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
-  const [activeTab, setActiveTab] = useState<string>('checkin');
+  const [appMode, setAppMode] = useState<'kiosk' | 'dashboard'>('kiosk');
+  const [activeTab, setActiveTab] = useState<string>('attendance');
 
   useEffect(() => {
     // Initialize DB with seed data if empty
     db.init();
     
-    // Check local storage for persistent session or student session
+    // Check local storage for persistent session
     const storedUser = localStorage.getItem('activeUser');
+    const storedMode = localStorage.getItem('appMode') as 'kiosk' | 'dashboard' | null;
+    if (storedMode) setAppMode(storedMode);
+
     if (storedUser) {
       try {
         const u = JSON.parse(storedUser);
         setUser(u);
-        setActiveTab(u.role === 'admin' ? 'attendance' : u.role === 'student' ? 'student_dashboard' : 'checkin');
+        if (u.role === 'admin') setActiveTab('attendance');
+        else if (u.role === 'staff') setActiveTab('checkedin');
       } catch (e) {
         console.warn('Failed to parse activeUser:', e);
       }
@@ -38,7 +44,6 @@ export default function App() {
       if (appUser) {
         setUser(appUser);
         localStorage.setItem('activeUser', JSON.stringify(appUser));
-        setActiveTab(appUser.role === 'admin' ? 'attendance' : 'checkin');
       }
     });
 
@@ -47,10 +52,16 @@ export default function App() {
     };
   }, []);
 
-  const handleLogin = (loggedInUser: User) => {
+  const handleLogin = (loggedInUser: User, mode: 'kiosk' | 'dashboard') => {
     setUser(loggedInUser);
+    setAppMode(mode);
     localStorage.setItem('activeUser', JSON.stringify(loggedInUser));
-    setActiveTab(loggedInUser.role === 'admin' ? 'attendance' : loggedInUser.role === 'student' ? 'student_dashboard' : 'checkin');
+    localStorage.setItem('appMode', mode);
+    if (loggedInUser.role === 'admin') {
+      setActiveTab('attendance');
+    } else {
+      setActiveTab('checkedin');
+    }
   };
 
   const handleLogout = async () => {
@@ -61,6 +72,12 @@ export default function App() {
     }
     setUser(null);
     localStorage.removeItem('activeUser');
+    localStorage.removeItem('appMode');
+  };
+
+  const switchMode = (mode: 'kiosk' | 'dashboard') => {
+    setAppMode(mode);
+    localStorage.setItem('appMode', mode);
   };
 
   if (!user) {
@@ -72,25 +89,7 @@ export default function App() {
     );
   }
 
-  const renderContent = () => {
-    if (user.role === 'student') {
-      return <StudentDashboard user={user} onComplete={handleLogout} />;
-    } else if (user.role === 'staff') {
-      switch (activeTab) {
-        case 'checkin': return <CheckInOut user={user} />;
-        case 'checkedin': return <CheckedInList />;
-        default: return <CheckInOut user={user} />;
-      }
-    } else {
-      switch (activeTab) {
-        case 'attendance': return <AdminAttendance />;
-        case 'students': return <AdminStudents />;
-        case 'staff': return <AdminStaff />;
-        default: return <AdminAttendance />;
-      }
-    }
-  };
-
+  // Student self-service mode (if student logs in)
   if (user.role === 'student') {
     return (
       <div className="min-h-screen bg-[#2edaff] p-4 sm:p-8 flex flex-col justify-center">
@@ -100,13 +99,83 @@ export default function App() {
     );
   }
 
+  // MODE A: DEDICATED STUDENT CHECK-IN KIOSK (NO DASHBOARD/SIDEBAR CLUTTER)
+  if (appMode === 'kiosk') {
+    return (
+      <div className="min-h-screen bg-[#2edaff] flex flex-col text-[#3c3c3b] font-sans">
+        <Toaster position="top-center" />
+        
+        {/* Kiosk Header Bar */}
+        <header className="bg-white border-b border-[#e5e1da] shadow-sm px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <img
+              src="/kumon_logo.webp"
+              alt="Kumon Dublin - East"
+              className="h-9 w-auto object-contain"
+            />
+            <div className="border-l border-[#e5e1da] pl-3">
+              <h1 className="text-lg font-bold text-black leading-tight">
+                Dublin - East
+              </h1>
+              <div className="flex items-center gap-1.5 text-xs text-[#5c869e] font-semibold">
+                <Clock size={12} />
+                Student Check-In Kiosk
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-[#f8f6f3] border border-[#e5e1da] rounded-xl text-xs text-[#6b6965]">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span>Staff: <strong>{user.name}</strong></span>
+            </div>
+
+            <button
+              onClick={handleLogout}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#fff1ee] hover:bg-[#d98466] text-[#d98466] hover:text-white rounded-xl text-xs font-bold transition-all cursor-pointer border border-[#fbdcd4]"
+              title="Sign out and return to login"
+            >
+              <LogOut size={14} />
+              <span>Sign Out</span>
+            </button>
+          </div>
+        </header>
+
+        {/* Main Kiosk Content Area */}
+        <main className="flex-1 p-4 sm:p-8 max-w-4xl w-full mx-auto">
+          <CheckInOut user={user} />
+        </main>
+      </div>
+    );
+  }
+
+  // MODE B: ADMIN & STAFF MANAGEMENT DASHBOARD (SIDEBAR + MANAGEMENT VIEWS)
+  const renderDashboardContent = () => {
+    if (user.role === 'staff') {
+      return <CheckedInList />;
+    } else {
+      switch (activeTab) {
+        case 'attendance': return <AdminAttendance />;
+        case 'checkedin': return <CheckedInList />;
+        case 'students': return <AdminStudents />;
+        case 'staff': return <AdminStaff />;
+        default: return <AdminAttendance />;
+      }
+    }
+  };
+
   return (
     <>
       <Toaster position="top-right" />
-      <DashboardLayout user={user} onLogout={handleLogout} activeTab={activeTab} setActiveTab={setActiveTab}>
-        {renderContent()}
+      <DashboardLayout 
+        user={user} 
+        onLogout={handleLogout} 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab}
+        onLaunchKiosk={() => switchMode('kiosk')}
+      >
+        {renderDashboardContent()}
       </DashboardLayout>
     </>
   );
 }
-

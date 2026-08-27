@@ -24,6 +24,7 @@
         "gradeLevel": { "type": "string", "required": false },
         "parentName": { "type": "string", "required": true },
         "parentPhone": { "type": "string", "required": true },
+        "parentPhone2": { "type": "string", "required": false },
         "parentEmail": { "type": "string", "required": false },
         "authorizedPickups": { "type": "array", "required": false },
         "notes": { "type": "string", "required": false },

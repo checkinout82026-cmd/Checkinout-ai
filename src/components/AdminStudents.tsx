@@ -12,6 +12,7 @@ export function AdminStudents() {
   const [name, setName] = useState('');
   const [parentName, setParentName] = useState('');
   const [parentPhone, setParentPhone] = useState('');
+  const [parentPhone2, setParentPhone2] = useState('');
   const [parentEmail, setParentEmail] = useState('');
   const [pickups, setPickups] = useState('');
   const [notes, setNotes] = useState('');
@@ -37,10 +38,12 @@ export function AdminStudents() {
       parent: { 
         name: parentName.trim(), 
         phone: parentPhone.trim(), 
+        phone2: parentPhone2.trim() || undefined,
         email: parentEmail.trim() 
       },
       parentName: parentName.trim(),
       parentPhone: parentPhone.trim(),
+      parentPhone2: parentPhone2.trim() || undefined,
       parentEmail: parentEmail.trim(),
       authorizedPickups,
       authorizedPickupDetails: authorizedPickups.map(p => ({
@@ -76,6 +79,7 @@ export function AdminStudents() {
     setName(student.name);
     setParentName(student.parent.name || student.parentName || '');
     setParentPhone(student.parent.phone || student.parentPhone || '');
+    setParentPhone2(student.parent.phone2 || student.parentPhone2 || '');
     setParentEmail(student.parent.email || student.parentEmail || '');
     setPickups(student.authorizedPickups.join(', '));
     setNotes(student.notes || '');
@@ -94,6 +98,7 @@ export function AdminStudents() {
     setName('');
     setParentName('');
     setParentPhone('');
+    setParentPhone2('');
     setParentEmail('');
     setPickups('');
     setNotes('');
@@ -151,7 +156,7 @@ export function AdminStudents() {
             />
           </div>
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-[#8c8a86] font-bold mb-2">Parent Phone (for Check-out SMS)</label>
+            <label className="block text-[10px] uppercase tracking-widest text-[#8c8a86] font-bold mb-2">Primary Phone (for SMS)</label>
             <input 
               type="text" 
               required 
@@ -162,6 +167,16 @@ export function AdminStudents() {
             />
           </div>
           <div>
+            <label className="block text-[10px] uppercase tracking-widest text-[#8c8a86] font-bold mb-2">2nd Phone Number (Optional)</label>
+            <input 
+              type="text" 
+              value={parentPhone2} 
+              onChange={e => setParentPhone2(e.target.value)} 
+              placeholder="e.g. 555-0199 (2nd parent / guardian)"
+              className="w-full px-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b]" 
+            />
+          </div>
+          <div className="md:col-span-2">
             <label className="block text-[10px] uppercase tracking-widest text-[#8c8a86] font-bold mb-2">Parent Email</label>
             <input 
               type="email" 
@@ -226,7 +241,14 @@ export function AdminStudents() {
                   </td>
                   <td className="px-8 py-4">
                     {s.parent.name}
-                    <div className="text-xs text-[#8c8a86] mt-0.5">{s.parent.phone}</div>
+                    <div className="text-xs text-[#8c8a86] mt-0.5 flex flex-wrap items-center gap-1.5">
+                      <span>Primary: {s.parent.phone}</span>
+                      {(s.parent.phone2 || s.parentPhone2) && (
+                        <span className="px-1.5 py-0.5 bg-[#5c869e15] text-[#5c869e] rounded text-[11px] font-medium">
+                          2nd: {s.parent.phone2 || s.parentPhone2}
+                        </span>
+                      )}
+                    </div>
                     {s.parent.email && <div className="text-xs text-[#a8a6a1]">{s.parent.email}</div>}
                   </td>
                   <td className="px-8 py-4">

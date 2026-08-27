@@ -3,7 +3,7 @@ import { db } from '../lib/db';
 import { Student, AttendanceRecord, User } from '../types';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
-import { Search, UserCheck, UserMinus, ShieldCheck, MessageSquare, Clock, Phone, User as UserIcon } from 'lucide-react';
+import { Search, UserCheck, UserMinus, ShieldCheck, MessageSquare, Clock, Phone, Smartphone, User as UserIcon } from 'lucide-react';
 
 export function CheckInOut({ user }: { user: User }) {
   const [studentId, setStudentId] = useState('');
@@ -14,10 +14,13 @@ export function CheckInOut({ user }: { user: User }) {
   const [pickupPerson, setPickupPerson] = useState('');
   const [customPickup, setCustomPickup] = useState('');
   const [isCustom, setIsCustom] = useState(false);
+  const [checkoutSmsTarget, setCheckoutSmsTarget] = useState<'primary' | 'secondary' | 'both' | 'custom'>('primary');
+  const [customCheckoutPhone, setCustomCheckoutPhone] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastSmsMessage, setLastSmsMessage] = useState<{ to: string; text: string; time: string } | null>(null);
   const [isFocused, setIsFocused] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const unsubStudents = db.subscribeStudents((list) => {
@@ -43,16 +46,26 @@ export function CheckInOut({ user }: { user: User }) {
   }, [records, activeStudent]);
 
   // Live filter suggestions based on typed input
-  const suggestions = studentId.trim()
-    ? students.filter(s => 
-        s.id.toLowerCase().includes(studentId.trim().toLowerCase()) ||
-        s.name.toLowerCase().includes(studentId.trim().toLowerCase())
-      ).slice(0, 6)
+  const query = studentId.trim().toLowerCase();
+  const suggestions = query
+    ? students
+        .filter(s => 
+          s.name.toLowerCase().includes(query) ||
+          s.id.toLowerCase().includes(query)
+        )
+        .sort((a, b) => {
+          const aStarts = a.name.toLowerCase().startsWith(query);
+          const bStarts = b.name.toLowerCase().startsWith(query);
+          if (aStarts && !bStarts) return -1;
+          if (!aStarts && bStarts) return 1;
+          return a.name.localeCompare(b.name);
+        })
+        .slice(0, 8)
     : [];
 
   const selectStudent = (student: Student) => {
     setActiveStudent(student);
-    setStudentId(student.id);
+    setStudentId(student.name);
     setIsFocused(false);
     
     const today = format(new Date(), 'yyyy-MM-dd');
@@ -64,21 +77,35 @@ export function CheckInOut({ user }: { user: User }) {
     setPickupPerson(defaultPickup);
     setIsCustom(false);
     setCustomPickup('');
+    setCheckoutSmsTarget('primary');
+    setCustomCheckoutPhone('');
     setLastSmsMessage(null);
   };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    const queryId = studentId.trim();
-    const found = students.find(s => s.id.toLowerCase() === queryId.toLowerCase() || s.name.toLowerCase() === queryId.toLowerCase());
+    const queryStr = studentId.trim().toLowerCase();
+    const found = students.find(s => s.name.toLowerCase() === queryStr || s.id.toLowerCase() === queryStr) ||
+      (suggestions.length > 0 ? suggestions[0] : null);
     
     if (found) {
       selectStudent(found);
     } else {
-      toast.error('Student ID or Name not found in database');
+      toast.error('Student Name not found in database');
       setActiveStudent(null);
       setAttendanceToday(null);
     }
+  };
+
+  const resetSearch = () => {
+    setActiveStudent(null);
+    setAttendanceToday(null);
+    setStudentId('');
+    setIsFocused(false);
+    setLastSmsMessage(null);
+    setTimeout(() => {
+      searchInputRef.current?.focus();
+    }, 50);
   };
 
   const handleCheckIn = async () => {
@@ -89,6 +116,8 @@ export function CheckInOut({ user }: { user: User }) {
       const today = format(new Date(), 'yyyy-MM-dd');
       const now = new Date().toISOString();
 
+      const staffDisplayName = user.name || user.fullName || user.username || 'Staff';
+
       const newRecord: AttendanceRecord = {
         id: crypto.randomUUID(),
         studentId: activeStudent.id,
@@ -97,7 +126,7 @@ export function CheckInOut({ user }: { user: User }) {
         status: 'checked_in',
         checkInTime: now,
         checkInStaffId: user.id,
-        checkInStaffName: user.name,
+        checkInStaffName: staffDisplayName,
         checkInMethod: 'staff_manual',
         checkOutTime: null,
         smsNotificationSent: false,
@@ -106,21 +135,14 @@ export function CheckInOut({ user }: { user: User }) {
       };
 
       await db.saveAttendanceRecord(newRecord);
-      setAttendanceToday(newRecord);
-      const parentPhone = activeStudent.parent?.phone || activeStudent.parentPhone || 'Parent Contact';
-      const timeFormatted = format(new Date(now), 'h:mm a');
-      const smsContent = `${activeStudent.name} was checked in at Kumon at ${timeFormatted}.`;
-
-      setLastSmsMessage({
-        to: parentPhone,
-        text: smsContent,
-        time: timeFormatted
-      });
 
       toast.success(
-        `Check-in recorded! SMS automatically sent to ${parentPhone}`, 
-        { duration: 4000, icon: '📱' }
+        `✅ Check-in recorded for ${activeStudent.name}! Ready for next student.`, 
+        { duration: 4000 }
       );
+
+      // Auto-clear so that the student card disappears and the next student can type their name
+      resetSearch();
     } catch (err) {
       console.error(err);
       toast.error('Failed to record check-in');
@@ -138,36 +160,54 @@ export function CheckInOut({ user }: { user: User }) {
       return;
     }
 
+    const p1 = activeStudent.parent?.phone || activeStudent.parentPhone || 'Parent Contact';
+    const p2 = activeStudent.parent?.phone2 || activeStudent.parentPhone2 || '';
+
+    let targetPhone = p1;
+    if (checkoutSmsTarget === 'secondary' && p2) {
+      targetPhone = p2;
+    } else if (checkoutSmsTarget === 'both' && p2) {
+      targetPhone = `${p1} & ${p2}`;
+    } else if (checkoutSmsTarget === 'custom') {
+      if (!customCheckoutPhone.trim()) {
+        toast.error('Please enter a custom phone number for SMS');
+        return;
+      }
+      targetPhone = customCheckoutPhone.trim();
+    }
+
     setIsSubmitting(true);
     try {
       const now = new Date().toISOString();
+      const staffDisplayName = user.name || user.fullName || user.username || 'Staff';
+
       const updatedRecord: AttendanceRecord = {
         ...attendanceToday,
         status: 'checked_out',
         checkOutTime: now,
         checkOutStaffId: user.id,
-        checkOutStaffName: user.name,
+        checkOutStaffName: staffDisplayName,
         pickupPerson: chosenPerson,
         pickupPersonName: chosenPerson,
         smsNotificationSent: true,
         smsSentAt: now,
+        smsRecipientPhone: targetPhone,
         updatedAt: now
       };
 
       await db.saveAttendanceRecord(updatedRecord);
       setAttendanceToday(updatedRecord);
       
-      const parentPhone = activeStudent.parent?.phone || activeStudent.parentPhone || 'Parent Contact';
       const timeFormatted = format(new Date(now), 'h:mm a');
       const smsContent = `${activeStudent.name} was checked out from Kumon at ${timeFormatted}.`;
 
       setLastSmsMessage({
-        to: parentPhone,
+        to: targetPhone,
         text: smsContent,
         time: timeFormatted
       });
 
-      toast.success(`Check-out recorded! SMS automatically sent to ${parentPhone}`, {
+      toast.success(`Check-out recorded! SMS automatically sent to ${targetPhone}`, {
         duration: 5000,
         icon: '📱'
       });
@@ -183,7 +223,7 @@ export function CheckInOut({ user }: { user: User }) {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-serif font-semibold text-[#4a4a48]">Check In / Out Terminal</h1>
-        <p className="text-[#8c8a86] mt-1 text-sm">Scan barcode or enter student ID for instant student lookup, check-in, check-out, and SMS dispatch.</p>
+        <p className="text-[#8c8a86] mt-1 text-sm">Search by student name for instant lookup, check-in, check-out, and SMS dispatch.</p>
       </div>
 
       {/* Search and lookup input */}
@@ -191,30 +231,31 @@ export function CheckInOut({ user }: { user: User }) {
         <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-end">
           <div className="flex-1 max-w-lg relative" ref={dropdownRef}>
             <label className="block text-[10px] uppercase tracking-widest text-[#8c8a86] font-bold mb-2">
-              Type Student ID # or Name
+              Student Name
             </label>
             <div className="relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8c8a86]" size={20} />
               <input
+                ref={searchInputRef}
                 type="text"
                 value={studentId}
                 onFocus={() => setIsFocused(true)}
                 onChange={(e) => setStudentId(e.target.value)}
-                placeholder="e.g. 10001 or John Smith"
-                className="w-full pl-12 pr-4 py-3 bg-[#f8f6f3] text-lg font-mono tracking-wide border border-[#e5e1da] rounded-2xl focus:ring-2 focus:ring-[#5c869e] outline-none text-[#3c3c3b]"
+                placeholder="Type student name (e.g. Adam...)"
+                className="w-full pl-12 pr-4 py-3 bg-[#f8f6f3] text-lg border border-[#e5e1da] rounded-2xl focus:ring-2 focus:ring-[#5c869e] outline-none text-[#3c3c3b]"
                 required
               />
             </div>
 
             {/* Live autocomplete suggestions while typing */}
             {isFocused && suggestions.length > 0 && (
-              <div className="absolute z-20 left-0 right-0 top-full mt-2 bg-white border border-[#e5e1da] rounded-2xl shadow-lg overflow-hidden divide-y divide-[#f2efe9]">
+              <div className="absolute z-20 left-0 right-0 top-full mt-2 bg-white border border-[#e5e1da] rounded-2xl shadow-lg overflow-hidden divide-y divide-[#f2efe9] max-h-60 overflow-y-auto">
                 {suggestions.map((s) => (
                   <button
                     key={s.id}
                     type="button"
                     onClick={() => selectStudent(s)}
-                    className="w-full text-left px-4 py-3 hover:bg-[#f8f6f3] transition-colors flex items-center justify-between gap-3 text-sm"
+                    className="w-full text-left px-4 py-3 hover:bg-[#f8f6f3] transition-colors flex items-center justify-between gap-3 text-sm cursor-pointer"
                   >
                     <div>
                       <span className="font-semibold text-[#4a4a48]">{s.name}</span>
@@ -222,9 +263,6 @@ export function CheckInOut({ user }: { user: User }) {
                         Parent: {s.parent?.name || s.parentName} • {s.parent?.phone || s.parentPhone}
                       </div>
                     </div>
-                    <span className="font-mono text-xs font-bold px-2.5 py-1 bg-[#5c869e15] text-[#5c869e] rounded-lg">
-                      ID #{s.id}
-                    </span>
                   </button>
                 ))}
               </div>
@@ -267,7 +305,14 @@ export function CheckInOut({ user }: { user: User }) {
               </div>
             </div>
             
-            <div>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={resetSearch}
+                className="text-xs px-3 py-1.5 bg-white border border-[#e5e1da] rounded-xl text-[#8c8a86] hover:text-[#3c3c3b] hover:bg-[#f8f6f3] font-semibold transition-colors cursor-pointer"
+              >
+                Clear / Next Student
+              </button>
               {attendanceToday ? (
                 attendanceToday.checkOutTime ? (
                   <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#d9846615] text-[#d98466] border border-[#d9846630] rounded-full text-[10px] uppercase font-bold tracking-widest">
@@ -340,17 +385,105 @@ export function CheckInOut({ user }: { user: User }) {
                   )}
                 </div>
 
+                {/* Choose Phone Number for Check-Out SMS */}
+                <div className="bg-white p-5 rounded-2xl border border-[#edeae6] space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Smartphone size={16} className="text-[#5c869e]" />
+                    <label className="block text-[10px] uppercase tracking-widest text-[#8c8a86] font-bold">
+                      Choose Phone Number to Send SMS
+                    </label>
+                  </div>
+
+                  <div className="space-y-2">
+                    {/* Primary Phone */}
+                    <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${checkoutSmsTarget === 'primary' ? 'border-[#5c869e] bg-[#5c869e]/10 text-[#3c3c3b]' : 'border-[#e5e1da] bg-[#f8f6f3] text-[#6b6965]'}`}>
+                      <input 
+                        type="radio" 
+                        name="terminalSmsTarget" 
+                        checked={checkoutSmsTarget === 'primary'} 
+                        onChange={() => setCheckoutSmsTarget('primary')} 
+                        className="accent-[#5c869e]"
+                      />
+                      <div className="text-xs">
+                        <span className="font-semibold text-[#4a4a48] block">Primary Phone: {activeStudent.parent?.phone || activeStudent.parentPhone}</span>
+                        <span className="text-[11px] text-[#8c8a86]">{activeStudent.parent?.name || activeStudent.parentName || 'Parent Contact'}</span>
+                      </div>
+                    </label>
+
+                    {/* 2nd Phone if available */}
+                    {(activeStudent.parent?.phone2 || activeStudent.parentPhone2) && (
+                      <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${checkoutSmsTarget === 'secondary' ? 'border-[#5c869e] bg-[#5c869e]/10 text-[#3c3c3b]' : 'border-[#e5e1da] bg-[#f8f6f3] text-[#6b6965]'}`}>
+                        <input 
+                          type="radio" 
+                          name="terminalSmsTarget" 
+                          checked={checkoutSmsTarget === 'secondary'} 
+                          onChange={() => setCheckoutSmsTarget('secondary')} 
+                          className="accent-[#5c869e]"
+                        />
+                        <div className="text-xs">
+                          <span className="font-semibold text-[#4a4a48] block">2nd Phone: {activeStudent.parent?.phone2 || activeStudent.parentPhone2}</span>
+                          <span className="text-[11px] text-[#8c8a86]">Secondary Parent / Guardian Contact</span>
+                        </div>
+                      </label>
+                    )}
+
+                    {/* Both numbers option if 2nd phone is available */}
+                    {(activeStudent.parent?.phone2 || activeStudent.parentPhone2) && (
+                      <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${checkoutSmsTarget === 'both' ? 'border-[#5c869e] bg-[#5c869e]/10 text-[#3c3c3b]' : 'border-[#e5e1da] bg-[#f8f6f3] text-[#6b6965]'}`}>
+                        <input 
+                          type="radio" 
+                          name="terminalSmsTarget" 
+                          checked={checkoutSmsTarget === 'both'} 
+                          onChange={() => setCheckoutSmsTarget('both')} 
+                          className="accent-[#5c869e]"
+                        />
+                        <div className="text-xs">
+                          <span className="font-semibold text-[#4a4a48] block">Both Phone Numbers</span>
+                          <span className="text-[11px] text-[#8c8a86]">Sends to both {activeStudent.parent?.phone || activeStudent.parentPhone} &amp; {activeStudent.parent?.phone2 || activeStudent.parentPhone2}</span>
+                        </div>
+                      </label>
+                    )}
+
+                    {/* Custom phone option */}
+                    <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${checkoutSmsTarget === 'custom' ? 'border-[#5c869e] bg-[#5c869e]/10 text-[#3c3c3b]' : 'border-[#e5e1da] bg-[#f8f6f3] text-[#6b6965]'}`}>
+                      <input 
+                        type="radio" 
+                        name="terminalSmsTarget" 
+                        checked={checkoutSmsTarget === 'custom'} 
+                        onChange={() => setCheckoutSmsTarget('custom')} 
+                        className="accent-[#5c869e]"
+                      />
+                      <div className="text-xs flex-1">
+                        <span className="font-semibold text-[#4a4a48] block">Other / Custom Phone Number</span>
+                      </div>
+                    </label>
+
+                    {checkoutSmsTarget === 'custom' && (
+                      <div className="pl-6 pt-1">
+                        <input 
+                          type="text" 
+                          value={customCheckoutPhone} 
+                          onChange={(e) => setCustomCheckoutPhone(e.target.value)} 
+                          placeholder="Enter phone number (e.g. 555-0199)"
+                          className="w-full px-3.5 py-2.5 bg-[#f8f6f3] border border-[#e5e1da] rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b]" 
+                          autoFocus
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 <button
                   onClick={handleCheckOut}
                   disabled={isSubmitting}
                   className="w-full px-8 py-4 bg-[#d98466] hover:opacity-90 text-white font-bold rounded-2xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50 text-base shadow-sm"
                 >
                   <UserMinus size={20} />
-                  {isSubmitting ? 'Processing...' : 'Complete Check-Out & Dispatch SMS'}
+                  {isSubmitting ? 'Processing...' : 'Complete Check-Out & Send SMS'}
                 </button>
                 <div className="flex items-center gap-2 text-xs text-[#8c8a86] bg-[#f8f6f3] p-3 rounded-xl">
                   <ShieldCheck size={16} className="text-[#5c869e] shrink-0" />
-                  <span>Verified by staff member <strong>{user.name}</strong>. Parent SMS will automatically trigger upon checkout.</span>
+                  <span>Verified by staff member <strong>{user.name}</strong>. SMS will dispatch to chosen phone number upon checkout.</span>
                 </div>
               </div>
             ) : (
@@ -360,6 +493,13 @@ export function CheckInOut({ user }: { user: User }) {
                   <p>Check-Out Time: <strong className="text-[#4a4a48]">{attendanceToday.checkOutTime ? format(new Date(attendanceToday.checkOutTime), 'h:mm a') : '-'}</strong> {attendanceToday.checkOutStaffName && `(by ${attendanceToday.checkOutStaffName})`}</p>
                   <p>Picked up by: <strong className="text-[#4a4a48]">{attendanceToday.pickupPerson || attendanceToday.pickupPersonName}</strong></p>
                 </div>
+                <button
+                  type="button"
+                  onClick={resetSearch}
+                  className="w-full sm:w-auto px-6 py-3 bg-[#5c869e] hover:opacity-90 text-white font-bold rounded-2xl transition-colors text-sm shadow-sm cursor-pointer"
+                >
+                  ✓ Ready for Next Student
+                </button>
               </div>
             )}
 
