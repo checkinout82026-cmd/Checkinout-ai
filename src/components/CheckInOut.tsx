@@ -3,7 +3,7 @@ import { db } from '../lib/db';
 import { Student, AttendanceRecord, User } from '../types';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
-import { Search, UserCheck, UserMinus, ShieldCheck, MessageSquare, Clock, Phone, Smartphone, User as UserIcon } from 'lucide-react';
+import { Search, UserCheck, UserMinus, ShieldCheck, MessageSquare, Clock, Phone, Smartphone, User as UserIcon, CheckCircle2 } from 'lucide-react';
 
 export function CheckInOut({ user }: { user: User }) {
   const [studentId, setStudentId] = useState('');
@@ -14,6 +14,8 @@ export function CheckInOut({ user }: { user: User }) {
   const [pickupPerson, setPickupPerson] = useState('');
   const [customPickup, setCustomPickup] = useState('');
   const [isCustom, setIsCustom] = useState(false);
+  const [checkinSmsTarget, setCheckinSmsTarget] = useState<'primary' | 'secondary' | 'both' | 'custom'>('primary');
+  const [customCheckinPhone, setCustomCheckinPhone] = useState('');
   const [checkoutSmsTarget, setCheckoutSmsTarget] = useState<'primary' | 'secondary' | 'both' | 'custom'>('primary');
   const [customCheckoutPhone, setCustomCheckoutPhone] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -77,6 +79,8 @@ export function CheckInOut({ user }: { user: User }) {
     setPickupPerson(defaultPickup);
     setIsCustom(false);
     setCustomPickup('');
+    setCheckinSmsTarget('primary');
+    setCustomCheckinPhone('');
     setCheckoutSmsTarget('primary');
     setCustomCheckoutPhone('');
     setLastSmsMessage(null);
@@ -102,6 +106,8 @@ export function CheckInOut({ user }: { user: User }) {
     setAttendanceToday(null);
     setStudentId('');
     setIsFocused(false);
+    setCheckinSmsTarget('primary');
+    setCustomCheckinPhone('');
     setLastSmsMessage(null);
     setTimeout(() => {
       searchInputRef.current?.focus();
@@ -110,6 +116,23 @@ export function CheckInOut({ user }: { user: User }) {
 
   const handleCheckIn = async () => {
     if (!activeStudent || isSubmitting) return;
+
+    const p1 = activeStudent.parent?.phone || activeStudent.parentPhone || 'Parent Contact';
+    const p2 = activeStudent.parent?.phone2 || activeStudent.parentPhone2 || '';
+
+    let targetPhone = p1;
+    if (checkinSmsTarget === 'secondary' && p2) {
+      targetPhone = p2;
+    } else if (checkinSmsTarget === 'both' && p2) {
+      targetPhone = `${p1} & ${p2}`;
+    } else if (checkinSmsTarget === 'custom') {
+      if (!customCheckinPhone.trim()) {
+        toast.error('Please enter a custom phone number for SMS');
+        return;
+      }
+      targetPhone = customCheckinPhone.trim();
+    }
+
     setIsSubmitting(true);
     
     try {
@@ -129,7 +152,8 @@ export function CheckInOut({ user }: { user: User }) {
         checkInStaffName: staffDisplayName,
         checkInMethod: 'staff_manual',
         checkOutTime: null,
-        smsNotificationSent: false,
+        smsNotificationSent: true,
+        smsSentAt: now,
         createdAt: now,
         updatedAt: now
       };
@@ -138,10 +162,10 @@ export function CheckInOut({ user }: { user: User }) {
 
       toast.success(
         `✅ Check-in recorded for ${activeStudent.name}! Ready for next student.`, 
-        { duration: 4000 }
+        { duration: 4000, icon: '📱' }
       );
 
-      // Auto-clear so that the student card disappears and the next student can type their name
+      // Auto-reset back to normal search screen so next student can check in immediately
       resetSearch();
     } catch (err) {
       console.error(err);
@@ -334,18 +358,108 @@ export function CheckInOut({ user }: { user: User }) {
           {/* Action Zone */}
           <div className="border-t border-[#e5e1da] pt-6">
             {!attendanceToday ? (
-              <div className="space-y-3">
+              <div className="max-w-xl space-y-4">
+                {/* Choose Phone Number for Check-In SMS */}
+                <div className="bg-white p-5 rounded-2xl border border-[#edeae6] space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Smartphone size={16} className="text-[#5c869e]" />
+                    <label className="block text-[10px] uppercase tracking-widest text-[#8c8a86] font-bold">
+                      Choose Phone Number to Send Check-In SMS
+                    </label>
+                  </div>
+
+                  <div className="space-y-2">
+                    {/* Primary Phone */}
+                    <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${checkinSmsTarget === 'primary' ? 'border-[#5c869e] bg-[#5c869e]/10 text-[#3c3c3b]' : 'border-[#e5e1da] bg-[#f8f6f3] text-[#6b6965]'}`}>
+                      <input 
+                        type="radio" 
+                        name="checkinSmsTargetRadio" 
+                        checked={checkinSmsTarget === 'primary'} 
+                        onChange={() => setCheckinSmsTarget('primary')} 
+                        className="accent-[#5c869e]"
+                      />
+                      <div className="text-xs">
+                        <span className="font-semibold text-[#4a4a48] block">Primary Phone: {activeStudent.parent?.phone || activeStudent.parentPhone}</span>
+                        <span className="text-[11px] text-[#8c8a86]">{activeStudent.parent?.name || activeStudent.parentName || 'Parent Contact'}</span>
+                      </div>
+                    </label>
+
+                    {/* 2nd Phone if available */}
+                    {(activeStudent.parent?.phone2 || activeStudent.parentPhone2) && (
+                      <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${checkinSmsTarget === 'secondary' ? 'border-[#5c869e] bg-[#5c869e]/10 text-[#3c3c3b]' : 'border-[#e5e1da] bg-[#f8f6f3] text-[#6b6965]'}`}>
+                        <input 
+                          type="radio" 
+                          name="checkinSmsTargetRadio" 
+                          checked={checkinSmsTarget === 'secondary'} 
+                          onChange={() => setCheckinSmsTarget('secondary')} 
+                          className="accent-[#5c869e]"
+                        />
+                        <div className="text-xs">
+                          <span className="font-semibold text-[#4a4a48] block">2nd Phone: {activeStudent.parent?.phone2 || activeStudent.parentPhone2}</span>
+                          <span className="text-[11px] text-[#8c8a86]">Secondary Parent / Guardian Contact</span>
+                        </div>
+                      </label>
+                    )}
+
+                    {/* Both numbers option if 2nd phone is available */}
+                    {(activeStudent.parent?.phone2 || activeStudent.parentPhone2) && (
+                      <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${checkinSmsTarget === 'both' ? 'border-[#5c869e] bg-[#5c869e]/10 text-[#3c3c3b]' : 'border-[#e5e1da] bg-[#f8f6f3] text-[#6b6965]'}`}>
+                        <input 
+                          type="radio" 
+                          name="checkinSmsTargetRadio" 
+                          checked={checkinSmsTarget === 'both'} 
+                          onChange={() => setCheckinSmsTarget('both')} 
+                          className="accent-[#5c869e]"
+                        />
+                        <div className="text-xs">
+                          <span className="font-semibold text-[#4a4a48] block">Both Phone Numbers</span>
+                          <span className="text-[11px] text-[#8c8a86]">Sends to both {activeStudent.parent?.phone || activeStudent.parentPhone} &amp; {activeStudent.parent?.phone2 || activeStudent.parentPhone2}</span>
+                        </div>
+                      </label>
+                    )}
+
+                    {/* Custom phone option */}
+                    <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${checkinSmsTarget === 'custom' ? 'border-[#5c869e] bg-[#5c869e]/10 text-[#3c3c3b]' : 'border-[#e5e1da] bg-[#f8f6f3] text-[#6b6965]'}`}>
+                      <input 
+                        type="radio" 
+                        name="checkinSmsTargetRadio" 
+                        checked={checkinSmsTarget === 'custom'} 
+                        onChange={() => setCheckinSmsTarget('custom')} 
+                        className="accent-[#5c869e]"
+                      />
+                      <div className="text-xs flex-1">
+                        <span className="font-semibold text-[#4a4a48] block">Other / Custom Phone Number</span>
+                      </div>
+                    </label>
+
+                    {checkinSmsTarget === 'custom' && (
+                      <div className="pl-6 pt-1">
+                        <input 
+                          type="text" 
+                          value={customCheckinPhone} 
+                          onChange={(e) => setCustomCheckinPhone(e.target.value)} 
+                          placeholder="Enter phone number (e.g. 555-0199)"
+                          className="w-full px-3.5 py-2.5 bg-[#f8f6f3] border border-[#e5e1da] rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b]" 
+                          autoFocus
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 <button
                   onClick={handleCheckIn}
                   disabled={isSubmitting}
-                  className="w-full sm:w-auto px-8 py-4 bg-[#5c869e] hover:opacity-90 text-white font-bold rounded-2xl transition-colors flex items-center justify-center gap-2 text-base disabled:opacity-50 shadow-sm"
+                  className="w-full px-8 py-4 bg-[#5c869e] hover:opacity-90 text-white font-bold rounded-2xl transition-colors flex items-center justify-center gap-2.5 disabled:opacity-50 text-base shadow-sm cursor-pointer"
                 >
                   <UserCheck size={20} />
-                  {isSubmitting ? 'Recording...' : `Check In ${activeStudent.name}`}
+                  {isSubmitting ? 'Recording Check-In...' : `Confirm & Check In ${activeStudent.name}`}
                 </button>
-                <p className="text-xs text-[#8c8a86]">
-                  Recording will save check-in time and associate staff auditor <strong>{user.name}</strong>.
-                </p>
+
+                <div className="flex items-center gap-2 text-xs text-[#8c8a86] bg-[#f8f6f3] p-3 rounded-xl">
+                  <ShieldCheck size={16} className="text-[#5c869e] shrink-0" />
+                  <span>Audited by staff member <strong>{user.name}</strong>. SMS check-in alert will dispatch to selected phone.</span>
+                </div>
               </div>
             ) : !attendanceToday.checkOutTime ? (
               <div className="max-w-xl space-y-4">
