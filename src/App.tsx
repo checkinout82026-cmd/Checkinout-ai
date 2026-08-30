@@ -12,6 +12,7 @@ import { AdminStudents } from './components/AdminStudents';
 import { AdminStaff } from './components/AdminStaff';
 import { AdminAttendance } from './components/AdminAttendance';
 import { StudentDashboard } from './components/StudentDashboard';
+import { KumonLogo } from './components/KumonLogo';
 import { Clock, LayoutDashboard, Lock, LogOut, Shield } from 'lucide-react';
 
 export default function App() {
@@ -106,21 +107,12 @@ export default function App() {
         <Toaster position="top-center" />
         
         {/* Kiosk Header Bar */}
-        <header className="bg-white border-b border-[#e5e1da] shadow-sm px-6 py-4 flex items-center justify-between">
+        <header className="bg-white border-b border-[#e5e1da] shadow-sm px-6 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img
-              src="/kumon_logo.webp"
-              alt="Kumon Dublin - East"
-              className="h-9 w-auto object-contain"
-            />
-            <div className="border-l border-[#e5e1da] pl-3">
-              <h1 className="text-lg font-bold text-black leading-tight">
-                Dublin - East
-              </h1>
-              <div className="flex items-center gap-1.5 text-xs text-[#5c869e] font-semibold">
-                <Clock size={12} />
-                Student Check-In Kiosk
-              </div>
+            <KumonLogo variant="horizontal" size="md" subtitle="Dublin - East" />
+            <div className="hidden sm:flex items-center gap-1.5 ml-2 pl-3 border-l border-[#e5e1da] text-xs text-[#5c869e] font-semibold">
+              <Clock size={13} />
+              Student Check-In Kiosk
             </div>
           </div>
 

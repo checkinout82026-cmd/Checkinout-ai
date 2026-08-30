@@ -495,7 +495,7 @@ export function AdminStaff() {
                   </td>
                   <td className="px-8 py-4">
                     <span className="font-mono text-xs text-[#6b6965] bg-[#f8f6f3] px-2.5 py-1 rounded-lg border border-[#e5e1da]">
-                      {s.password || 'AdminSmith#2026'}
+                      {s.password || (s.role === 'admin' ? 'Giridharan#20' : 'Password123!')}
                     </span>
                   </td>
                   <td className="px-8 py-4 text-xs text-[#8c8a86]">
@@ -515,7 +515,7 @@ export function AdminStaff() {
                         <Edit3 size={13} />
                         Edit Account
                       </button>
-                      {s.id !== 'admin_smith' && (
+                      {s.id !== 'admin_keshav' && s.id !== 'admin_smith' && (
                         <button 
                           onClick={() => deleteStaff(s.id, s.name)} 
                           title="Remove Account"

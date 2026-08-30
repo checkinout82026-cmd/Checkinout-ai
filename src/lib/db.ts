@@ -11,7 +11,7 @@ import {
 } from 'firebase/firestore';
 import { firestore } from './firebase';
 import { User, Student, AttendanceRecord, AuthorizedPickupPerson } from '../types';
-import { TEN_STUDENTS, generate10Students } from './seedData';
+import { TEN_STUDENTS, INITIAL_ATTENDANCE_RECORDS, generate10Students } from './seedData';
 
 const USERS_KEY = 'checkin_users';
 const STUDENTS_KEY = 'checkin_students';
@@ -19,26 +19,40 @@ const ATTENDANCE_KEY = 'checkin_attendance';
 
 export const defaultUsers: User[] = [
   { 
-    id: 'admin_smith', 
-    username: 'smith.admin', 
-    password: 'AdminSmith#2026', 
+    id: 'admin_keshav', 
+    username: 'KeshavKousik', 
+    password: 'Giridharan#20', 
     role: 'admin', 
-    name: 'Smith Admin', 
-    fullName: 'Smith Admin', 
-    email: 'smith.admin@school.com', 
+    name: 'Keshav Kousik', 
+    fullName: 'Keshav Kousik', 
+    email: 'keshavkousik@school.com', 
     phone: '555-0100', 
     isActive: true, 
     createdAt: new Date().toISOString(), 
     updatedAt: new Date().toISOString() 
+  },
+  {
+    id: 'staff_rachel',
+    username: 'adams.rachel',
+    password: 'Password123!',
+    role: 'staff',
+    name: 'Adams Rachel',
+    fullName: 'Adams Rachel',
+    email: 'rachel.adams@school.com',
+    phone: '555-0102',
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   }
 ];
 
 export const defaultStudents: Student[] = TEN_STUDENTS;
+export const defaultAttendance: AttendanceRecord[] = INITIAL_ATTENDANCE_RECORDS;
 
 // In-memory cache synced with Firestore and local fallback
 let cachedUsers: User[] = defaultUsers;
 let cachedStudents: Student[] = defaultStudents;
-let cachedAttendance: AttendanceRecord[] = [];
+let cachedAttendance: AttendanceRecord[] = defaultAttendance;
 let initialized = false;
 
 export const db = {
@@ -91,9 +105,17 @@ export const db = {
         list.push({ ...data, id: data.id || docSnap.id });
       });
 
-      if (!list.some(u => u.email?.toLowerCase() === 'smith.admin@school.com' || u.username === 'smith.admin')) {
+      // If old admin_smith exists, replace with or upgrade to admin_keshav
+      const smithIndex = list.findIndex(u => u.id === 'admin_smith' || u.username === 'smith.admin');
+      if (smithIndex >= 0) {
+        list[smithIndex] = defaultUsers[0];
+        await setDoc(doc(firestore, 'users', 'admin_keshav'), defaultUsers[0], { merge: true });
+        try { await deleteDoc(doc(firestore, 'users', 'admin_smith')); } catch {}
+      }
+
+      if (!list.some(u => u.username?.toLowerCase() === 'keshavkousik' || u.id === 'admin_keshav')) {
         list.unshift(defaultUsers[0]);
-        await setDoc(doc(firestore, 'users', 'admin_smith'), defaultUsers[0], { merge: true });
+        await setDoc(doc(firestore, 'users', 'admin_keshav'), defaultUsers[0], { merge: true });
       }
 
       const nextUsers = list.length > 0 ? list : defaultUsers;
@@ -209,36 +231,41 @@ export const db = {
     cachedStudents = students;
     localStorage.setItem(STUDENTS_KEY, JSON.stringify(students));
     try {
-      const batch = writeBatch(firestore);
-      students.forEach(s => {
-        const ref = doc(firestore, 'students', s.id);
-        const pPhone = s.parentPhone || s.parent?.phone || '';
-        const pPhone2 = s.parentPhone2 || s.parent?.phone2 || '';
-        batch.set(ref, {
-          id: s.id,
-          userId: s.userId || null,
-          name: s.name || s.fullName || '',
-          fullName: s.fullName || s.name || '',
-          gradeLevel: s.gradeLevel || '',
-          parentName: s.parentName || s.parent?.name || '',
-          parentPhone: pPhone,
-          parentPhone2: pPhone2,
-          parentEmail: s.parentEmail || s.parent?.email || '',
-          parent: {
-            name: s.parent?.name || s.parentName || '',
-            phone: pPhone,
-            phone2: pPhone2,
-            email: s.parent?.email || s.parentEmail || ''
-          },
-          authorizedPickups: s.authorizedPickups || [],
-          authorizedPickupDetails: s.authorizedPickupDetails || [],
-          notes: s.notes || '',
-          isActive: s.isActive !== undefined ? s.isActive : true,
-          createdAt: s.createdAt || new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }, { merge: true });
-      });
-      await batch.commit();
+      // Chunk batches in sets of 200 for Firestore safety
+      const chunkSize = 200;
+      for (let i = 0; i < students.length; i += chunkSize) {
+        const chunk = students.slice(i, i + chunkSize);
+        const batch = writeBatch(firestore);
+        chunk.forEach(s => {
+          const ref = doc(firestore, 'students', s.id);
+          const pPhone = s.parentPhone || s.parent?.phone || '';
+          const pPhone2 = s.parentPhone2 || s.parent?.phone2 || '';
+          batch.set(ref, {
+            id: s.id,
+            userId: s.userId || null,
+            name: s.name || s.fullName || '',
+            fullName: s.fullName || s.name || '',
+            gradeLevel: s.gradeLevel || '',
+            parentName: s.parentName || s.parent?.name || '',
+            parentPhone: pPhone,
+            parentPhone2: pPhone2,
+            parentEmail: s.parentEmail || s.parent?.email || '',
+            parent: {
+              name: s.parent?.name || s.parentName || '',
+              phone: pPhone,
+              phone2: pPhone2,
+              email: s.parent?.email || s.parentEmail || ''
+            },
+            authorizedPickups: s.authorizedPickups || [],
+            authorizedPickupDetails: s.authorizedPickupDetails || [],
+            notes: s.notes || '',
+            isActive: s.isActive !== undefined ? s.isActive : true,
+            createdAt: s.createdAt || new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          }, { merge: true });
+        });
+        await batch.commit();
+      }
     } catch (err) {
       console.warn('Firestore saveStudents error:', err);
     }
@@ -300,16 +327,61 @@ export const db = {
     }
   },
 
+  loadAttendanceFromFirestore: async (): Promise<AttendanceRecord[]> => {
+    try {
+      const snap = await getDocs(collection(firestore, 'attendance'));
+      if (!snap.empty) {
+        const list: AttendanceRecord[] = [];
+        snap.forEach(docSnap => {
+          list.push(docSnap.data() as AttendanceRecord);
+        });
+        cachedAttendance = list;
+        localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(list));
+        return list;
+      } else {
+        // If Firestore attendance is empty, seed initial attendance records
+        await db.saveAttendance(defaultAttendance);
+        return defaultAttendance;
+      }
+    } catch (err) {
+      console.warn('Firestore loadAttendance error:', err);
+      return db.getAttendance();
+    }
+  },
+
   getAttendance: (): AttendanceRecord[] => {
     const data = localStorage.getItem(ATTENDANCE_KEY);
     if (data) {
       try {
-        cachedAttendance = JSON.parse(data);
+        const parsed = JSON.parse(data);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          cachedAttendance = parsed;
+        } else {
+          cachedAttendance = defaultAttendance;
+        }
       } catch (e) {
         console.error('Error parsing cached attendance', e);
       }
+    } else {
+      cachedAttendance = defaultAttendance;
     }
     return cachedAttendance;
+  },
+
+  importAttendanceRecords: async (newRecords: AttendanceRecord[]) => {
+    const current = db.getAttendance();
+    const existingMap = new Map(current.map(r => [r.id, r]));
+    newRecords.forEach(nr => {
+      existingMap.set(nr.id, nr);
+    });
+    const combined = Array.from(existingMap.values());
+    await db.saveAttendance(combined);
+    return combined;
+  },
+
+  seedInitialAttendance: async () => {
+    await db.saveAttendance(defaultAttendance);
+    return defaultAttendance;
   },
 
   saveAttendance: async (records: AttendanceRecord[]) => {
@@ -480,11 +552,11 @@ export const db = {
             list.push(docSnap.data() as User);
           });
           
-          // Ensure smith.admin is always in database and list
-          if (!list.some(u => u.email?.toLowerCase() === 'smith.admin@school.com' || u.username === 'smith.admin')) {
+          // Ensure KeshavKousik is always in database and list
+          if (!list.some(u => u.username?.toLowerCase() === 'keshavkousik' || u.id === 'admin_keshav')) {
             const adminDoc = defaultUsers[0];
             list.unshift(adminDoc);
-            setDoc(doc(firestore, 'users', 'admin_smith'), adminDoc, { merge: true }).catch(() => {});
+            setDoc(doc(firestore, 'users', 'admin_keshav'), adminDoc, { merge: true }).catch(() => {});
           }
 
           cachedUsers = list;
@@ -493,7 +565,7 @@ export const db = {
         } else {
           // Empty collection: write admin to Firestore
           const adminDoc = defaultUsers[0];
-          setDoc(doc(firestore, 'users', 'admin_smith'), adminDoc, { merge: true }).catch(() => {});
+          setDoc(doc(firestore, 'users', 'admin_keshav'), adminDoc, { merge: true }).catch(() => {});
           callback(defaultUsers);
         }
       }, (err) => {
@@ -597,24 +669,24 @@ export const db = {
       try {
         const parsed: User[] = JSON.parse(localUsersData);
         const legacyIds = new Set(['u1', 'u2', 'u3', 'u4']);
-        const hasLegacy = parsed.some(u => legacyIds.has(u.id));
-        if (hasLegacy) {
-          const filtered = parsed.filter(u => !legacyIds.has(u.id));
-          if (!filtered.some(u => u.email === 'smith.admin@school.com')) {
-            filtered.unshift(defaultUsers[0]);
-          }
-          localStorage.setItem(USERS_KEY, JSON.stringify(filtered));
-          cachedUsers = filtered;
-        } else {
-          cachedUsers = parsed;
+        let filtered = parsed.filter(u => !legacyIds.has(u.id));
+        
+        // Upgrade smith.admin to KeshavKousik if present in cache
+        const smithIdx = filtered.findIndex(u => u.id === 'admin_smith' || u.username === 'smith.admin');
+        if (smithIdx >= 0) {
+          filtered[smithIdx] = defaultUsers[0];
+        } else if (!filtered.some(u => u.username?.toLowerCase() === 'keshavkousik' || u.id === 'admin_keshav')) {
+          filtered.unshift(defaultUsers[0]);
         }
+        localStorage.setItem(USERS_KEY, JSON.stringify(filtered));
+        cachedUsers = filtered;
       } catch {
         localStorage.setItem(USERS_KEY, JSON.stringify(defaultUsers));
         cachedUsers = defaultUsers;
       }
     }
     
-    // Students in local cache
+    // Students in local cache: reset to dummy students if requested or if cache has old 100+ roster
     const localStudentsData = localStorage.getItem(STUDENTS_KEY);
     if (!localStudentsData) {
       localStorage.setItem(STUDENTS_KEY, JSON.stringify(defaultStudents));
@@ -622,7 +694,14 @@ export const db = {
     } else {
       try {
         const parsed = JSON.parse(localStudentsData);
-        cachedStudents = Array.isArray(parsed) && parsed.length > 0 ? parsed : defaultStudents;
+        // If parsed is array and contains old names (like Aadhya Cartik or > 20 records from previous real roster), revert to dummy students
+        const hasRealRoster = Array.isArray(parsed) && (parsed.some(s => s.name === 'Aadhya Cartik' || s.name === 'Aanshi Patel') || parsed.length > 25);
+        if (!Array.isArray(parsed) || hasRealRoster) {
+          localStorage.setItem(STUDENTS_KEY, JSON.stringify(defaultStudents));
+          cachedStudents = defaultStudents;
+        } else {
+          cachedStudents = parsed;
+        }
       } catch {
         localStorage.setItem(STUDENTS_KEY, JSON.stringify(defaultStudents));
         cachedStudents = defaultStudents;
@@ -630,14 +709,15 @@ export const db = {
     }
 
     if (!localStorage.getItem(ATTENDANCE_KEY)) {
-      localStorage.setItem(ATTENDANCE_KEY, JSON.stringify([]));
-      cachedAttendance = [];
+      localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(defaultAttendance));
+      cachedAttendance = defaultAttendance;
     }
 
     // Check & seed Firestore collections
     try {
       await db.loadUsersFromFirestore();
       await db.loadStudentsFromFirestore();
+      await db.loadAttendanceFromFirestore();
       const usersSnap = await getDocs(collection(firestore, 'users'));
 
       // Clean up legacy users (u1, u2, u3, u4) from Firestore
@@ -653,9 +733,23 @@ export const db = {
       }
 
       const studentsSnap = await getDocs(collection(firestore, 'students'));
-      if (studentsSnap.empty) {
-        console.log('Seeding initial students to Firestore...');
+      // If Firestore contains the 100+ real roster items, clean them up and seed the 10 dummy students
+      const hasRealNamesInFirestore = studentsSnap.docs.some(d => {
+        const data = d.data();
+        return data.name === 'Aadhya Cartik' || data.name === 'Aanshi Patel' || data.name === 'Aaron Cheung';
+      });
+
+      if (studentsSnap.empty || hasRealNamesInFirestore || studentsSnap.size > 20) {
+        console.log('Restoring 10 dummy students to Firestore...');
+        // Delete existing real roster docs
+        for (const d of studentsSnap.docs) {
+          try {
+            await deleteDoc(doc(firestore, 'students', d.id));
+          } catch (e) {}
+        }
         await db.saveStudents(defaultStudents);
+      } else {
+        await db.loadStudentsFromFirestore();
       }
 
       // Also seed authorized_pickups collection for relational representation

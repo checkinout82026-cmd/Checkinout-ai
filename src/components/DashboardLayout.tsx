@@ -1,5 +1,6 @@
 import React from 'react';
 import { User } from '../types';
+import { KumonLogo } from './KumonLogo';
 import { LogOut, LayoutDashboard, Users, Clock, ShieldCheck, ArrowUpRight } from 'lucide-react';
 
 interface LayoutProps {
@@ -19,31 +20,38 @@ export function DashboardLayout({ user, onLogout, children, activeTab, setActive
     <div className="min-h-screen bg-[#2edaff] flex flex-col md:flex-row text-[#3c3c3b] font-sans">
       {/* Sidebar */}
       <aside className="w-full md:w-64 bg-white border-r border-[#e5e1da] text-[#8c8a86] flex flex-col shrink-0">
-        <div className="p-6 border-b border-[#e5e1da]">
-          <img
-            src="/kumon_logo.webp"
-            alt="Kumon"
-            className="h-10 w-auto object-contain"
-          />
+        <div className="p-5 border-b border-[#e5e1da]">
+          <KumonLogo variant="horizontal" size="sm" subtitle="Dublin - East" />
 
-          <h2 className="mt-2 text-2xl font-bold text-black">
-            Dublin - East
-          </h2>
-
-          <div className="mt-3 inline-flex items-center gap-2 px-3 py-2 bg-[#f8f6f3] border border-[#edeae6] rounded-md text-[10px] uppercase font-bold tracking-widest text-[#8c8a86]">
-            <span className="w-2 h-2 rounded-full bg-[#005BAC]"></span>
-            {user.name} ({user.role})
+          {/* User Profile + Top Sign Out Action */}
+          <div className="mt-3.5 flex items-center justify-between gap-2 p-2 bg-[#f8f6f3] border border-[#edeae6] rounded-xl">
+            <div className="flex flex-col min-w-0 pr-1">
+              <span className="text-xs font-bold text-[#1e293b] truncate leading-tight">{user.name}</span>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#0099DD]"></span>
+                <span className="text-[10px] uppercase font-bold tracking-wider text-[#5c869e]">{user.role}</span>
+              </div>
+            </div>
+            
+            <button
+              onClick={onLogout}
+              title="Sign Out of Portal"
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg text-xs font-bold transition-all shadow-xs shrink-0 cursor-pointer"
+            >
+              <LogOut size={13} />
+              <span>Sign Out</span>
+            </button>
           </div>
 
           {/* Quick Launch Student Kiosk Button */}
           {onLaunchKiosk && (
             <button
               onClick={onLaunchKiosk}
-              className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#5c869e] hover:opacity-90 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
+              className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2 bg-[#5c869e] hover:opacity-90 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
             >
-              <Clock size={15} />
+              <Clock size={14} />
               Open Student Kiosk
-              <ArrowUpRight size={14} className="opacity-75" />
+              <ArrowUpRight size={13} className="opacity-75" />
             </button>
           )}
         </div>
@@ -86,16 +94,6 @@ export function DashboardLayout({ user, onLogout, children, activeTab, setActive
             </>
           )}
         </nav>
-
-        <div className="p-4 border-t border-[#e5e1da] space-y-3">
-          <button 
-            onClick={onLogout}
-            className="flex items-center gap-3 w-full px-4 py-2.5 text-sm font-medium rounded-lg text-[#d98466] hover:bg-[#f2efe9] transition-colors cursor-pointer"
-          >
-            <LogOut size={18} />
-            Sign Out
-          </button>
-        </div>
       </aside>
 
       {/* Main Content */}

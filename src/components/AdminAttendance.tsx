@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../lib/db';
 import { AttendanceRecord, Student, User } from '../types';
+import { parseAttendanceCSV } from '../lib/csvParser';
 import { format, subDays, startOfMonth } from 'date-fns';
 import toast from 'react-hot-toast';
 import { 
@@ -17,6 +18,9 @@ import {
   CalendarRange, 
   ArrowRight, 
   Download, 
+  Upload,
+  FileText,
+  Check,
   RotateCcw,
   CheckSquare,
   Square,
@@ -40,6 +44,10 @@ export function AdminAttendance() {
   // Modal states
   const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importCsvText, setImportCsvText] = useState('');
+  const [parsedImportRecords, setParsedImportRecords] = useState<AttendanceRecord[]>([]);
+  const [isImporting, setIsImporting] = useState(false);
   const [singleDeleteTarget, setSingleDeleteTarget] = useState<{ id: string; name: string; date: string; time: string } | null>(null);
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
   const [showPurgeRangeModal, setShowPurgeRangeModal] = useState(false);
@@ -199,7 +207,7 @@ export function AdminAttendance() {
   const openAddModal = () => {
     const today = format(new Date(), 'yyyy-MM-dd');
     const nowTime = format(new Date(), 'HH:mm');
-    setFormStudentId(students[0]?.id || '10001');
+    setFormStudentId(students[0]?.id || '100000000001');
     setFormDate(today);
     setFormCheckInTime(nowTime);
     setFormCheckInStaffId(users[0]?.id || '');
@@ -435,6 +443,78 @@ export function AdminAttendance() {
     );
   };
 
+  const openImportModal = () => {
+    // Default with the user's latest CSV format if empty
+    if (!importCsvText) {
+      setImportCsvText(`Date,Student ID,Student Name,Check-In Time,Check-In Staff,Check-Out Time,Check-Out Staff,Pickup Person
+2026-08-23,"10008","Evelyn Davis","5:28 PM","Adams Rachel","5:28 PM","Adams Rachel","Alexander Davis"
+2026-08-23,"10002","Noah Johnson","5:24 PM","Adams Rachel","","",""
+2026-08-23,"10001","Liam Smith","1:57 PM","Self-Service Kiosk","1:57 PM","Student Kiosk Terminal","Olivia Smith"
+2026-08-23,"10003","Emma Williams","12:24 PM","Self-Service Kiosk","","",""
+2026-08-23,"10009","James Rodriguez","12:13 PM","Adams Rachel","12:13 PM","Adams Rachel","Layla Rodriguez"
+2026-08-22,"10005","Amelia Jones","7:58 PM","Self-Service Kiosk","","",""
+2026-08-22,"10009","James Rodriguez","1:07 PM","Self-Service Kiosk","1:08 PM","Student Kiosk Terminal","Layla Rodriguez"
+2026-08-22,"10002","Noah Johnson","12:15 PM","Self-Service Kiosk","","",""
+2026-08-22,"10001","Liam Smith","12:15 PM","Self-Service Kiosk","1:11 PM","Student Kiosk Terminal","Olivia Smith"
+2026-08-21,"10001","Liam Smith","12:15 PM","Smith Admin","","",""`);
+    }
+    setShowImportModal(true);
+  };
+
+  const handleCsvTextChange = (text: string) => {
+    setImportCsvText(text);
+    if (text.trim()) {
+      const parsed = parseAttendanceCSV(text, students);
+      setParsedImportRecords(parsed);
+    } else {
+      setParsedImportRecords([]);
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const content = evt.target?.result as string;
+      if (content) {
+        handleCsvTextChange(content);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleCommitImport = async () => {
+    if (parsedImportRecords.length === 0) {
+      const parsed = parseAttendanceCSV(importCsvText, students);
+      if (parsed.length === 0) {
+        toast.error('No valid attendance records found in CSV');
+        return;
+      }
+      setParsedImportRecords(parsed);
+    }
+
+    const recordsToImport = parsedImportRecords.length > 0 ? parsedImportRecords : parseAttendanceCSV(importCsvText, students);
+    if (recordsToImport.length === 0) {
+      toast.error('No records to import');
+      return;
+    }
+
+    setIsImporting(true);
+    try {
+      await db.importAttendanceRecords(recordsToImport);
+      toast.success(`Successfully imported ${recordsToImport.length} records into Firebase!`);
+      setShowImportModal(false);
+      setImportCsvText('');
+      setParsedImportRecords([]);
+    } catch (err) {
+      console.error('Import error:', err);
+      toast.error('Failed to import records to Firebase');
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   const handleExportCSV = (recordsToExport = filtered) => {
     if (recordsToExport.length === 0) {
       toast.error('No records to export');
@@ -508,6 +588,15 @@ export function AdminAttendance() {
           <p className="text-[#8c8a86] mt-1 text-sm">View, filter by date range, search, correct, or manually record student attendance.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            onClick={openImportModal}
+            className="inline-flex items-center gap-2 px-3.5 py-2 bg-white border border-[#e5e1da] hover:bg-[#f8f6f3] text-[#4a4a48] font-bold rounded-2xl transition-all shadow-sm text-xs cursor-pointer"
+            title="Import attendance records from CSV file or text"
+          >
+            <Upload size={15} className="text-[#5c869e]" />
+            Import CSV
+          </button>
+
           <button
             onClick={() => handleExportCSV()}
             className="inline-flex items-center gap-2 px-3.5 py-2 bg-white border border-[#e5e1da] hover:bg-[#f8f6f3] text-[#4a4a48] font-bold rounded-2xl transition-all shadow-sm text-xs cursor-pointer"
@@ -1315,6 +1404,159 @@ export function AdminAttendance() {
                   setPurgeConfirmationText('');
                 }}
                 disabled={isDeleting}
+                className="px-5 py-3 bg-[#f2efe9] text-[#8c8a86] hover:text-[#4a4a48] font-bold rounded-xl text-xs transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* 5. Import CSV Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white max-w-3xl w-full rounded-[32px] p-6 sm:p-7 border border-[#e5e1da] shadow-2xl animate-in zoom-in-95 space-y-5 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#5c869e]/15 flex items-center justify-center text-[#5c869e]">
+                  <Upload size={20} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-serif font-bold text-[#4a4a48]">Import Attendance CSV</h3>
+                  <p className="text-xs text-[#8c8a86]">Paste CSV text or upload a .csv file to batch import student check-in/out records into Firebase.</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowImportModal(false)}
+                className="p-2 text-[#8c8a86] hover:text-[#4a4a48] rounded-xl hover:bg-[#f8f6f3] transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-4 overflow-y-auto pr-1 flex-1">
+              {/* File upload option */}
+              <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-[#f8f6f3] rounded-2xl border border-[#e5e1da]">
+                <div className="flex items-center gap-2">
+                  <FileText size={18} className="text-[#5c869e]" />
+                  <span className="text-xs font-semibold text-[#4a4a48]">Upload a CSV file:</span>
+                </div>
+                <label className="px-3.5 py-1.5 bg-white border border-[#e5e1da] text-[#4a4a48] text-xs font-bold rounded-xl cursor-pointer hover:bg-[#edeae6] transition-colors shadow-sm inline-flex items-center gap-1.5">
+                  <Upload size={13} />
+                  Choose .csv File
+                  <input
+                    type="file"
+                    accept=".csv,text/csv,text/plain"
+                    className="hidden"
+                    onChange={handleFileUpload}
+                  />
+                </label>
+              </div>
+
+              {/* Textarea for pasting */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-[#8c8a86] uppercase tracking-wider">
+                    Paste CSV Data:
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const sample = `Date,Student ID,Student Name,Check-In Time,Check-In Staff,Check-Out Time,Check-Out Staff,Pickup Person
+2026-08-23,"10008","Evelyn Davis","5:28 PM","Adams Rachel","5:28 PM","Adams Rachel","Alexander Davis"
+2026-08-23,"10002","Noah Johnson","5:24 PM","Adams Rachel","","",""
+2026-08-23,"10001","Liam Smith","1:57 PM","Self-Service Kiosk","1:57 PM","Student Kiosk Terminal","Olivia Smith"
+2026-08-23,"10003","Emma Williams","12:24 PM","Self-Service Kiosk","","",""
+2026-08-23,"10009","James Rodriguez","12:13 PM","Adams Rachel","12:13 PM","Adams Rachel","Layla Rodriguez"
+2026-08-22,"10005","Amelia Jones","7:58 PM","Self-Service Kiosk","","",""
+2026-08-22,"10009","James Rodriguez","1:07 PM","Self-Service Kiosk","1:08 PM","Student Kiosk Terminal","Layla Rodriguez"
+2026-08-22,"10002","Noah Johnson","12:15 PM","Self-Service Kiosk","","",""
+2026-08-22,"10001","Liam Smith","12:15 PM","Self-Service Kiosk","1:11 PM","Student Kiosk Terminal","Olivia Smith"
+2026-08-21,"10001","Liam Smith","12:15 PM","Smith Admin","","",""`;
+                      handleCsvTextChange(sample);
+                    }}
+                    className="text-[11px] text-[#5c869e] hover:underline font-semibold cursor-pointer"
+                  >
+                    Load Current Attendance Records (10 rows)
+                  </button>
+                </div>
+                <textarea
+                  value={importCsvText}
+                  onChange={e => handleCsvTextChange(e.target.value)}
+                  rows={6}
+                  placeholder="Date,Student ID,Student Name,Check-In Time,Check-In Staff,Check-Out Time,Check-Out Staff,Pickup Person..."
+                  className="w-full px-3.5 py-2.5 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl text-xs font-mono focus:outline-none focus:border-[#5c869e] resize-y"
+                />
+              </div>
+
+              {/* Preview Section */}
+              {parsedImportRecords.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-[#4a4a48]">
+                      Parsed Preview: <span className="text-[#5c869e]">{parsedImportRecords.length} Records</span> Ready to Import
+                    </span>
+                    <span className="text-[11px] text-[#8c8a86]">
+                      {parsedImportRecords.filter(r => r.status === 'checked_out').length} Checked-Out, {parsedImportRecords.filter(r => r.status === 'checked_in').length} Checked-In
+                    </span>
+                  </div>
+
+                  <div className="max-h-48 overflow-y-auto border border-[#e5e1da] rounded-2xl">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-[#f8f6f3] text-[#8c8a86] border-b border-[#e5e1da] sticky top-0">
+                        <tr>
+                          <th className="py-2 px-3 font-semibold">Date</th>
+                          <th className="py-2 px-3 font-semibold">Student ID</th>
+                          <th className="py-2 px-3 font-semibold">Student Name</th>
+                          <th className="py-2 px-3 font-semibold">Check-In</th>
+                          <th className="py-2 px-3 font-semibold">Check-Out</th>
+                          <th className="py-2 px-3 font-semibold">Pickup Person</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#e5e1da]">
+                        {parsedImportRecords.map((pr, idx) => (
+                          <tr key={pr.id || idx} className="hover:bg-[#fcfbf9]">
+                            <td className="py-2 px-3 text-[#4a4a48] font-mono text-[11px]">{pr.date}</td>
+                            <td className="py-2 px-3 font-mono text-[#5c869e] font-semibold text-[11px]">{pr.studentId}</td>
+                            <td className="py-2 px-3 text-[#4a4a48] font-medium">{pr.studentName}</td>
+                            <td className="py-2 px-3 text-[#5e705b]">
+                              {pr.checkInTime ? format(new Date(pr.checkInTime), 'h:mm a') : '-'}
+                            </td>
+                            <td className="py-2 px-3 text-[#8c8a86]">
+                              {pr.checkOutTime ? format(new Date(pr.checkOutTime), 'h:mm a') : '-'}
+                            </td>
+                            <td className="py-2 px-3 text-[#4a4a48]">
+                              {pr.pickupPerson || '-'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 pt-3 border-t border-[#e5e1da]">
+              <button
+                type="button"
+                onClick={handleCommitImport}
+                disabled={isImporting || parsedImportRecords.length === 0}
+                className="flex-1 py-3 bg-[#5c869e] hover:opacity-90 text-white font-bold rounded-xl text-xs transition-opacity cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isImporting ? (
+                  <>Importing Records to Firebase...</>
+                ) : (
+                  <>
+                    <Check size={16} />
+                    Import {parsedImportRecords.length} Records into System
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowImportModal(false)}
+                disabled={isImporting}
                 className="px-5 py-3 bg-[#f2efe9] text-[#8c8a86] hover:text-[#4a4a48] font-bold rounded-xl text-xs transition-colors cursor-pointer"
               >
                 Cancel

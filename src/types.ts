@@ -35,7 +35,7 @@ export interface AuthorizedPickupPerson {
 }
 
 export interface Student {
-  id: string; // The ID # used for check-in (e.g. "10001")
+  id: string; // 12-character alphanumeric or numeric ID (e.g. "100000000001" or "KM8291048291")
   userId?: string;
   name: string;
   fullName?: string;

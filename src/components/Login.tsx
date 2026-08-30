@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { signInWithEmail } from '../lib/auth';
 import { User } from '../types';
+import { KumonLogo } from './KumonLogo';
 import toast from 'react-hot-toast';
 import { Shield, Lock, User as UserIcon, Loader2, Eye, EyeOff, ArrowRight, Clock, LayoutDashboard } from 'lucide-react';
 
@@ -49,16 +50,8 @@ export function Login({ onLogin }: LoginProps) {
     <div className="min-h-screen flex items-center justify-center bg-[#2edaff] text-[#3c3c3b] font-sans p-4">
       <div className="w-full max-w-md bg-white p-7 sm:p-9 rounded-[36px] shadow-xl border border-[#e5e1da] animate-in fade-in zoom-in-95 duration-200">
         {/* Header Branding */}
-        <div className="text-center mb-6">
-          <img
-            src="/kumon_logo.webp"
-            alt="Kumon Dublin - East"
-            className="mx-auto h-18 w-auto object-contain mb-2"
-          />
-
-          <h1 className="text-2xl sm:text-3xl font-serif font-bold text-black tracking-tight">
-            Dublin - East
-          </h1>
+        <div className="text-center mb-6 flex flex-col items-center">
+          <KumonLogo variant="vertical" size="lg" subtitle="Dublin - East" />
         </div>
 
         {/* Portal Mode Selector (Kiosk vs Management Dashboard) */}

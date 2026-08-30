@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { db } from '../lib/db';
 import { AttendanceRecord, Student } from '../types';
 import { format } from 'date-fns';
-import { UserCheck } from 'lucide-react';
+import { UserCheck, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
 export function CheckedInList() {
   const [checkedIn, setCheckedIn] = useState<{ record: AttendanceRecord, student: Student }[]>([]);
+  const [sortBy, setSortBy] = useState<'time' | 'name'>('time');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   useEffect(() => {
     let records: AttendanceRecord[] = db.getAttendance();
@@ -48,6 +50,28 @@ export function CheckedInList() {
     };
   }, []);
 
+  const toggleSort = (field: 'time' | 'name') => {
+    if (sortBy === field) {
+      setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortOrder(field === 'name' ? 'asc' : 'desc');
+    }
+  };
+
+  const sortedList = [...checkedIn].sort((a, b) => {
+    if (sortBy === 'name') {
+      const nameA = (a.student.name || a.student.fullName || '').trim();
+      const nameB = (b.student.name || b.student.fullName || '').trim();
+      const comp = nameA.localeCompare(nameB, undefined, { sensitivity: 'base' });
+      return sortOrder === 'asc' ? comp : -comp;
+    } else {
+      const timeA = a.record.checkInTime ? new Date(a.record.checkInTime).getTime() : 0;
+      const timeB = b.record.checkInTime ? new Date(b.record.checkInTime).getTime() : 0;
+      return sortOrder === 'asc' ? timeA - timeB : timeB - timeA;
+    }
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -79,34 +103,70 @@ export function CheckedInList() {
               <thead className="bg-[#fcfaf7] text-[10px] uppercase tracking-widest text-[#8c8a86] font-bold border-b border-[#f2efe9]">
                 <tr>
                   <th className="px-8 py-5">Student ID</th>
-                  <th className="px-8 py-5">Student Name</th>
-                  <th className="px-8 py-5">Check-In Time</th>
+                  <th 
+                    className="px-8 py-5 cursor-pointer select-none hover:text-[#3c3c3b] transition-colors"
+                    onClick={() => toggleSort('name')}
+                    title="Click to sort alphabetically by First Name"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>Student Name</span>
+                      {sortBy === 'name' ? (
+                        <span className="inline-flex items-center gap-1 text-[#3c3c3b] font-extrabold bg-[#f2efe9] px-2 py-0.5 rounded text-[10px]">
+                          {sortOrder === 'asc' ? 'A → Z' : 'Z → A'}
+                          {sortOrder === 'asc' ? <ArrowUp size={11} /> : <ArrowDown size={11} />}
+                        </span>
+                      ) : (
+                        <ArrowUpDown size={12} className="opacity-40" />
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    className="px-8 py-5 cursor-pointer select-none hover:text-[#3c3c3b] transition-colors"
+                    onClick={() => toggleSort('time')}
+                    title="Click to sort by Check-In Time"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>Check-In Time</span>
+                      {sortBy === 'time' ? (
+                        <span className="inline-flex items-center gap-1 text-[#3c3c3b] font-extrabold bg-[#f2efe9] px-2 py-0.5 rounded text-[10px]">
+                          {sortOrder === 'asc' ? 'Earliest' : 'Latest'}
+                          {sortOrder === 'asc' ? <ArrowUp size={11} /> : <ArrowDown size={11} />}
+                        </span>
+                      ) : (
+                        <ArrowUpDown size={12} className="opacity-40" />
+                      )}
+                    </div>
+                  </th>
                   <th className="px-8 py-5">Parent / Contact</th>
                   <th className="px-8 py-5">Authorized Pickups</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#f2efe9]">
-                {checkedIn.map((item) => (
-                  <tr key={item.record.id} className="hover:bg-[#e8f2f8] transition-colors text-sm text-[#3c3c3b]">
-                    <td className="px-8 py-4 text-[#8c8a86] font-mono font-semibold">{item.student.id}</td>
-                    <td className="px-8 py-4 font-medium">
-                      {item.student.name}
-                    </td>
-                    <td className="px-8 py-4 text-[#8c8a86]">
-                      <span className="w-2 h-2 rounded-full bg-[#5c869e] inline-block mr-2"></span>
-                      {item.record.checkInTime ? format(new Date(item.record.checkInTime), 'h:mm a') : 'N/A'}
-                    </td>
-                    <td className="px-8 py-4">
-                      {item.student.parent?.name || item.student.parentName}
-                      <span className="block text-xs text-[#8c8a86] mt-0.5">{item.student.parent?.phone || item.student.parentPhone}</span>
-                    </td>
-                    <td className="px-8 py-4">
-                      <div className="max-w-xs truncate text-xs text-[#8c8a86]">
-                        {item.student.authorizedPickups?.length > 0 ? item.student.authorizedPickups.join(', ') : '-'}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {sortedList.map((item) => {
+                  return (
+                    <tr key={item.record.id} className="hover:bg-[#fcfaf7] transition-colors text-sm text-[#3c3c3b]">
+                      <td className="px-8 py-4 text-[#8c8a86] font-mono font-semibold">{item.student.id}</td>
+                      <td className="px-8 py-4">
+                        <div className="font-semibold text-sm text-[#1e293b]">
+                          {item.student.name || item.student.fullName}
+                        </div>
+                      </td>
+                      <td className="px-8 py-4 text-[#8c8a86]">
+                        <span className="w-2 h-2 rounded-full bg-[#5c869e] inline-block mr-2"></span>
+                        {item.record.checkInTime ? format(new Date(item.record.checkInTime), 'h:mm a') : 'N/A'}
+                      </td>
+                      <td className="px-8 py-4">
+                        {item.student.parent?.name || item.student.parentName}
+                        <span className="block text-xs text-[#8c8a86] mt-0.5">{item.student.parent?.phone || item.student.parentPhone}</span>
+                      </td>
+                      <td className="px-8 py-4">
+                        <div className="max-w-xs truncate text-xs text-[#8c8a86]">
+                          {item.student.authorizedPickups?.length > 0 ? item.student.authorizedPickups.join(', ') : '-'}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

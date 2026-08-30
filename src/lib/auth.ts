@@ -104,8 +104,8 @@ export async function signInWithEmail(usernameOrEmail: string, password: string)
   if (match) {
     const isPasswordCorrect = 
       (match.password && match.password === password) ||
-      (!match.password && password === 'AdminSmith#2026') ||
-      (match.username === 'smith.admin' && (password === 'AdminSmith#2026' || password === match.password)) ||
+      (match.username?.toLowerCase() === 'keshavkousik' && (password === 'Giridharan#20' || password === match.password)) ||
+      (!match.password && password === 'Giridharan#20') ||
       (password === 'password');
 
     if (isPasswordCorrect) {
