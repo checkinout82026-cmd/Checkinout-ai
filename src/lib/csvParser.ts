@@ -162,8 +162,129 @@ export function parseStudentCSV(csvText: string): Student[] {
   const rows = parseCSVLines(csvText);
   if (rows.length < 2) return [];
 
-  const headerRow = rows[0].map(h => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
+  const rawHeader = rows[0];
+  const headerRow = rawHeader.map(h => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
   
+  // Check if it's the Kumon Center multi-column format (e.g., First Name, Last Name, Mother First Name, Father First Name, etc.)
+  const isKumonMultiColumn = headerRow.some(h => h.includes('mother') || h.includes('father') || (headerRow.includes('firstname') && headerRow.includes('lastname')));
+
+  if (isKumonMultiColumn) {
+    const idIdx = headerRow.findIndex(h => h.includes('studentid') || h === 'id');
+    const fNameIdx = headerRow.findIndex(h => h === 'firstname' || (h.includes('first') && !h.includes('mother') && !h.includes('father')));
+    const lNameIdx = headerRow.findIndex(h => h === 'lastname' || (h.includes('last') && !h.includes('mother') && !h.includes('father')));
+    const nameIdx = headerRow.findIndex(h => (h.includes('studentname') || h === 'name') && !h.includes('parent'));
+    const homePhoneIdx = headerRow.findIndex(h => h.includes('homephone') || h === 'phone');
+
+    const mFirstIdx = headerRow.findIndex(h => h.includes('mother') && h.includes('first'));
+    const mLastIdx = headerRow.findIndex(h => h.includes('mother') && h.includes('last'));
+    const mPhoneIdx = headerRow.findIndex(h => h.includes('mother') && (h.includes('phone') || h.includes('cell') || h.includes('mobile')));
+
+    const fFirstIdx = headerRow.findIndex(h => h.includes('father') && h.includes('first'));
+    const fLastIdx = headerRow.findIndex(h => h.includes('father') && h.includes('last'));
+    const fPhoneIdx = headerRow.findIndex(h => h.includes('father') && (h.includes('phone') || h.includes('cell') || h.includes('mobile')));
+
+    const formatPhone = (num?: string) => {
+      if (!num) return '';
+      const digits = num.replace(/\D/g, '');
+      if (!digits) return '';
+      if (digits.length <= 3) return `(${digits}`;
+      if (digits.length <= 6) return `(${digits.slice(0, 3)}) - ${digits.slice(3)}`;
+      return `(${digits.slice(0, 3)}) - ${digits.slice(3, 6)}- ${digits.slice(6, 10)}`;
+    };
+
+    const toTitle = (str?: string) => {
+      if (!str) return '';
+      return str.trim().toLowerCase().split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    };
+
+    const students: Student[] = [];
+
+    for (let i = 1; i < rows.length; i++) {
+      const cols = rows[i];
+      if (cols.length === 0 || !cols.some(c => c.length > 0)) continue;
+
+      const sid = (idIdx !== -1 && cols[idIdx]) ? cols[idIdx].trim().replace(/^"+|"+$/g, '') : `8402${i.toString().padStart(9, '0')}`;
+      
+      let sName = '';
+      if (fNameIdx !== -1 && lNameIdx !== -1 && (cols[fNameIdx] || cols[lNameIdx])) {
+        sName = toTitle(`${cols[fNameIdx] || ''} ${cols[lNameIdx] || ''}`);
+      } else if (nameIdx !== -1 && cols[nameIdx]) {
+        sName = toTitle(cols[nameIdx]);
+      } else {
+        sName = `Student ${sid}`;
+      }
+
+      const homePhone = (homePhoneIdx !== -1 && cols[homePhoneIdx]) ? formatPhone(cols[homePhoneIdx]) : '';
+      
+      const mFirst = (mFirstIdx !== -1 && cols[mFirstIdx]) ? cols[mFirstIdx].trim() : '';
+      const mLast = (mLastIdx !== -1 && cols[mLastIdx]) ? cols[mLastIdx].trim() : '';
+      const motherName = toTitle(`${mFirst} ${mLast}`);
+      const motherPhone = (mPhoneIdx !== -1 && cols[mPhoneIdx]) ? formatPhone(cols[mPhoneIdx]) : homePhone;
+
+      const fFirst = (fFirstIdx !== -1 && cols[fFirstIdx]) ? cols[fFirstIdx].trim() : '';
+      const fLast = (fLastIdx !== -1 && cols[fLastIdx]) ? cols[fLastIdx].trim() : '';
+      const fatherName = toTitle(`${fFirst} ${fLast}`);
+      const fatherPhone = (fPhoneIdx !== -1 && cols[fPhoneIdx]) ? formatPhone(cols[fPhoneIdx]) : homePhone;
+
+      const pickups: { name: string; relationship: string; phone: string; isPrimary: boolean }[] = [];
+      if (motherName) {
+        pickups.push({
+          name: motherName,
+          relationship: 'Mother',
+          phone: motherPhone || homePhone,
+          isPrimary: true
+        });
+      }
+      if (fatherName) {
+        pickups.push({
+          name: fatherName,
+          relationship: 'Father',
+          phone: fatherPhone || homePhone,
+          isPrimary: pickups.length === 0
+        });
+      }
+      if (pickups.length === 0) {
+        pickups.push({
+          name: `${sName} Guardian`,
+          relationship: 'Primary Guardian',
+          phone: homePhone || '(614) - 555- 0000',
+          isPrimary: true
+        });
+      }
+
+      const primary = pickups[0];
+      const secondary = pickups.length > 1 ? pickups[1] : null;
+
+      const student: Student = {
+        id: sid,
+        name: sName,
+        fullName: sName,
+        gradeLevel: 'Kumon Student',
+        parent: {
+          name: primary.name,
+          phone: primary.phone,
+          phone2: secondary ? secondary.phone : '',
+          email: ''
+        },
+        parentName: primary.name,
+        parentPhone: primary.phone,
+        parentPhone2: secondary ? secondary.phone : '',
+        parentEmail: '',
+        authorizedPickups: pickups.map(p => p.name),
+        authorizedPickupDetails: pickups,
+        notes: homePhone ? `Home Phone: ${homePhone}` : '',
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      students.push(student);
+    }
+
+    return students;
+  }
+
+  // Standard generic format
   const idIdx = headerRow.findIndex(h => h.includes('studentid') || h === 'id');
   const nameIdx = headerRow.findIndex(h => (h.includes('studentname') || h.includes('fullname') || h === 'name') && !h.includes('parent'));
   const gradeIdx = headerRow.findIndex(h => h.includes('grade'));

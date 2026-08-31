@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../lib/db';
 import { Student, AttendanceRecord, User } from '../types';
+import { formatPhoneNumber } from '../lib/utils';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { Search, UserCheck, UserMinus, ShieldCheck, MessageSquare, Clock, Phone, Smartphone, User as UserIcon, CheckCircle2 } from 'lucide-react';
@@ -437,11 +438,12 @@ export function CheckInOut({ user }: { user: User }) {
                         <input 
                           type="text" 
                           value={customCheckinPhone} 
-                          onChange={(e) => setCustomCheckinPhone(e.target.value)} 
-                          placeholder="Enter phone number (e.g. 555-0199)"
+                          onChange={(e) => setCustomCheckinPhone(formatPhoneNumber(e.target.value))} 
+                          placeholder="(614) - 555- 0000"
                           className="w-full px-3.5 py-2.5 bg-[#f8f6f3] border border-[#e5e1da] rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b]" 
                           autoFocus
                         />
+                        <p className="text-[10px] text-[#8c8a86] mt-1">Dashes not needed — just type digits</p>
                       </div>
                     )}
                   </div>
@@ -577,11 +579,12 @@ export function CheckInOut({ user }: { user: User }) {
                         <input 
                           type="text" 
                           value={customCheckoutPhone} 
-                          onChange={(e) => setCustomCheckoutPhone(e.target.value)} 
-                          placeholder="Enter phone number (e.g. 555-0199)"
+                          onChange={(e) => setCustomCheckoutPhone(formatPhoneNumber(e.target.value))} 
+                          placeholder="(614) - 555- 0000"
                           className="w-full px-3.5 py-2.5 bg-[#f8f6f3] border border-[#e5e1da] rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b]" 
                           autoFocus
                         />
+                        <p className="text-[10px] text-[#8c8a86] mt-1">Dashes not needed — just type digits</p>
                       </div>
                     )}
                   </div>

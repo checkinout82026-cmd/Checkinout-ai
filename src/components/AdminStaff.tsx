@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../lib/db';
 import { registerStaffOrAdmin, sendPasswordReset } from '../lib/auth';
 import { User, Role } from '../types';
+import { formatPhoneNumber } from '../lib/utils';
 import toast from 'react-hot-toast';
-import { UserPlus, KeyRound, Shield, Trash2, Mail, Loader2, CheckCircle2, Edit3, User as UserIcon, Lock, Phone, Info, X } from 'lucide-react';
+import { UserPlus, KeyRound, Shield, Trash2, Mail, Loader2, CheckCircle2, Edit3, User as UserIcon, Lock, Phone, Info, X, Eye, EyeOff } from 'lucide-react';
 
 export function AdminStaff() {
   const [staffList, setStaffList] = useState<User[]>([]);
@@ -15,6 +16,7 @@ export function AdminStaff() {
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [role, setRole] = useState<Role>('staff');
@@ -23,6 +25,7 @@ export function AdminStaff() {
   const [editName, setEditName] = useState('');
   const [editUsername, setEditUsername] = useState('');
   const [editPassword, setEditPassword] = useState('');
+  const [showEditPassword, setShowEditPassword] = useState(false);
   const [editEmail, setEditEmail] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editRole, setEditRole] = useState<Role>('staff');
@@ -247,14 +250,22 @@ export function AdminStaff() {
               </label>
               <div className="relative">
                 <input
-                  type="text"
+                  type={showPassword ? "text" : "password"}
                   required
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  placeholder="e.g. DublinStaff#2026"
-                  className="w-full pl-10 pr-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b] font-mono text-sm"
+                  placeholder="••••••••"
+                  className="w-full pl-10 pr-10 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b] font-mono text-sm"
                 />
                 <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8c8a86]" />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#8c8a86] hover:text-[#4a4a48] p-1 cursor-pointer transition-colors"
+                  title={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
             </div>
 
@@ -288,12 +299,13 @@ export function AdminStaff() {
                 <input
                   type="text"
                   value={phone}
-                  onChange={e => setPhone(e.target.value)}
-                  placeholder="555-0155"
+                  onChange={e => setPhone(formatPhoneNumber(e.target.value))}
+                  placeholder="(614) - 555- 0000"
                   className="w-full pl-10 pr-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b]"
                 />
                 <Phone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8c8a86]" />
               </div>
+              <p className="text-[11px] text-[#8c8a86] mt-1">Dashes not needed — just type 10 digits</p>
             </div>
 
             <div>
@@ -374,14 +386,22 @@ export function AdminStaff() {
               </label>
               <div className="relative">
                 <input
-                  type="text"
+                  type={showEditPassword ? "text" : "password"}
                   required
                   value={editPassword}
                   onChange={e => setEditPassword(e.target.value)}
-                  placeholder="Enter new password"
-                  className="w-full pl-10 pr-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b] font-mono text-sm"
+                  placeholder="••••••••"
+                  className="w-full pl-10 pr-10 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b] font-mono text-sm"
                 />
                 <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8c8a86]" />
+                <button
+                  type="button"
+                  onClick={() => setShowEditPassword(!showEditPassword)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#8c8a86] hover:text-[#4a4a48] p-1 cursor-pointer transition-colors"
+                  title={showEditPassword ? "Hide password" : "Show password"}
+                >
+                  {showEditPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
             </div>
 
@@ -414,12 +434,13 @@ export function AdminStaff() {
                 <input
                   type="text"
                   value={editPhone}
-                  onChange={e => setEditPhone(e.target.value)}
-                  placeholder="555-0155"
+                  onChange={e => setEditPhone(formatPhoneNumber(e.target.value))}
+                  placeholder="(614) - 555- 0000"
                   className="w-full pl-10 pr-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b]"
                 />
                 <Phone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8c8a86]" />
               </div>
+              <p className="text-[11px] text-[#8c8a86] mt-1">Dashes not needed — just type 10 digits</p>
             </div>
 
             <div>
@@ -465,8 +486,8 @@ export function AdminStaff() {
               <tr>
                 <th className="px-8 py-5">Name &amp; Role</th>
                 <th className="px-8 py-5">Username (Login ID)</th>
-                <th className="px-8 py-5">Password</th>
-                <th className="px-8 py-5">Contact</th>
+                <th className="px-8 py-5">Phone Number</th>
+                <th className="px-8 py-5">Email</th>
                 <th className="px-8 py-5 text-right">Actions</th>
               </tr>
             </thead>
@@ -480,12 +501,6 @@ export function AdminStaff() {
                         {s.role}
                       </span>
                     </div>
-                    {s.email && (
-                      <span className="text-xs text-[#8c8a86] font-normal flex items-center gap-1 mt-0.5">
-                        <Mail size={12} className="text-[#8c8a86]" />
-                        {s.email}
-                      </span>
-                    )}
                   </td>
                   <td className="px-8 py-4">
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-[#5c869e]/10 text-[#4b6573] font-mono font-bold text-xs">
@@ -493,17 +508,23 @@ export function AdminStaff() {
                       {s.username}
                     </span>
                   </td>
-                  <td className="px-8 py-4">
-                    <span className="font-mono text-xs text-[#6b6965] bg-[#f8f6f3] px-2.5 py-1 rounded-lg border border-[#e5e1da]">
-                      {s.password || (s.role === 'admin' ? 'Giridharan#20' : 'Password123!')}
-                    </span>
-                  </td>
-                  <td className="px-8 py-4 text-xs text-[#8c8a86]">
+                  <td className="px-8 py-4 text-xs text-[#6b6965]">
                     {s.phone ? (
-                      <span className="flex items-center gap-1 text-[#6b6965]">
-                        <Phone size={12} /> {s.phone}
+                      <span className="flex items-center gap-1.5 font-medium text-[#4a4a48]">
+                        <Phone size={13} className="text-[#8c8a86]" /> {s.phone}
                       </span>
-                    ) : '-'}
+                    ) : (
+                      <span className="text-[#b5b3af]">-</span>
+                    )}
+                  </td>
+                  <td className="px-8 py-4 text-xs text-[#6b6965]">
+                    {s.email ? (
+                      <span className="flex items-center gap-1.5 text-[#6b6965]">
+                        <Mail size={13} className="text-[#8c8a86]" /> {s.email}
+                      </span>
+                    ) : (
+                      <span className="text-[#b5b3af]">-</span>
+                    )}
                   </td>
                   <td className="px-8 py-4 text-right">
                     <div className="flex items-center justify-end gap-2.5">

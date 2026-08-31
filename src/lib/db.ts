@@ -686,7 +686,7 @@ export const db = {
       }
     }
     
-    // Students in local cache: reset to dummy students if requested or if cache has old 100+ roster
+    // Students in local cache: initialize with actual students roster
     const localStudentsData = localStorage.getItem(STUDENTS_KEY);
     if (!localStudentsData) {
       localStorage.setItem(STUDENTS_KEY, JSON.stringify(defaultStudents));
@@ -694,9 +694,8 @@ export const db = {
     } else {
       try {
         const parsed = JSON.parse(localStudentsData);
-        // If parsed is array and contains old names (like Aadhya Cartik or > 20 records from previous real roster), revert to dummy students
-        const hasRealRoster = Array.isArray(parsed) && (parsed.some(s => s.name === 'Aadhya Cartik' || s.name === 'Aanshi Patel') || parsed.length > 25);
-        if (!Array.isArray(parsed) || hasRealRoster) {
+        // If parsed is dummy roster with <= 10 students, upgrade to the full actual students roster
+        if (!Array.isArray(parsed) || parsed.length <= 10 || parsed.some(s => s.name === 'Liam Smith' || s.name === 'Noah Johnson')) {
           localStorage.setItem(STUDENTS_KEY, JSON.stringify(defaultStudents));
           cachedStudents = defaultStudents;
         } else {
@@ -733,15 +732,15 @@ export const db = {
       }
 
       const studentsSnap = await getDocs(collection(firestore, 'students'));
-      // If Firestore contains the 100+ real roster items, clean them up and seed the 10 dummy students
-      const hasRealNamesInFirestore = studentsSnap.docs.some(d => {
+      // If Firestore contains the 10 dummy students (e.g. Liam Smith) or is empty, seed the full actual student roster
+      const hasDummyNamesInFirestore = studentsSnap.docs.some(d => {
         const data = d.data();
-        return data.name === 'Aadhya Cartik' || data.name === 'Aanshi Patel' || data.name === 'Aaron Cheung';
+        return data.name === 'Liam Smith' || data.name === 'Noah Johnson';
       });
 
-      if (studentsSnap.empty || hasRealNamesInFirestore || studentsSnap.size > 20) {
-        console.log('Restoring 10 dummy students to Firestore...');
-        // Delete existing real roster docs
+      if (studentsSnap.empty || hasDummyNamesInFirestore || studentsSnap.size <= 10) {
+        console.log('Seeding actual student roster to Firestore...');
+        // Delete existing dummy docs
         for (const d of studentsSnap.docs) {
           try {
             await deleteDoc(doc(firestore, 'students', d.id));

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../lib/db';
 import { Student } from '../types';
 import { parseStudentCSV } from '../lib/csvParser';
+import { formatPhoneNumber } from '../lib/utils';
 import toast from 'react-hot-toast';
 import { Sparkles, Hash, Search, Upload, Download, FileText, X, Check, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
@@ -381,20 +382,22 @@ export function AdminStudents() {
               type="text" 
               required 
               value={parentPhone} 
-              onChange={e => setParentPhone(e.target.value)} 
-              placeholder="e.g. 555-0144"
+              onChange={e => setParentPhone(formatPhoneNumber(e.target.value))} 
+              placeholder="(614) - 555- 0000"
               className="w-full px-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b]" 
             />
+            <p className="text-[11px] text-[#8c8a86] mt-1">Dashes not needed — just type 10 digits</p>
           </div>
           <div>
             <label className="block text-[10px] uppercase tracking-widest text-[#8c8a86] font-bold mb-2">2nd Phone Number (Optional)</label>
             <input 
               type="text" 
               value={parentPhone2} 
-              onChange={e => setParentPhone2(e.target.value)} 
-              placeholder="e.g. 555-0199 (2nd parent / guardian)"
+              onChange={e => setParentPhone2(formatPhoneNumber(e.target.value))} 
+              placeholder="(614) - 555- 0000 (Optional 2nd contact)"
               className="w-full px-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b]" 
             />
+            <p className="text-[11px] text-[#8c8a86] mt-1">Dashes not needed — just type 10 digits</p>
           </div>
           <div>
             <label className="block text-[10px] uppercase tracking-widest text-[#8c8a86] font-bold mb-2">Parent Email</label>
