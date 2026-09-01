@@ -24,8 +24,6 @@ export function AdminStaff() {
   // Form state for editing user
   const [editName, setEditName] = useState('');
   const [editUsername, setEditUsername] = useState('');
-  const [editPassword, setEditPassword] = useState('');
-  const [showEditPassword, setShowEditPassword] = useState(false);
   const [editEmail, setEditEmail] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editRole, setEditRole] = useState<Role>('staff');
@@ -82,11 +80,10 @@ export function AdminStaff() {
       setShowAddForm(false);
     } catch (err: any) {
       console.warn('Firebase Auth user creation notice:', err);
-      // Fallback to Firestore saving directly
+      // Fallback to Firestore saving directly without plaintext password
       const newUser: User = {
         id: 'u_' + crypto.randomUUID().slice(0, 8),
         username: cleanUsername,
-        password: cleanPassword,
         name: name.trim(),
         fullName: name.trim(),
         role,
@@ -108,7 +105,6 @@ export function AdminStaff() {
     setEditingUser(user);
     setEditName(user.name || user.fullName || '');
     setEditUsername(user.username || '');
-    setEditPassword(user.password || '');
     setEditEmail(user.email || '');
     setEditPhone(user.phone || '');
     setEditRole(user.role || 'staff');
@@ -138,7 +134,6 @@ export function AdminStaff() {
         username: cleanUsername,
         name: editName.trim(),
         fullName: editName.trim(),
-        password: editPassword.trim() || editingUser.password || '',
         email: editEmail.trim() || `${cleanUsername}@school.org`,
         phone: editPhone.trim(),
         role: editRole,
@@ -384,28 +379,24 @@ export function AdminStaff() {
               </div>
             </div>
 
-            <div>
+            <div className="flex flex-col justify-center">
               <label className="block text-[10px] uppercase tracking-widest text-[#8c8a86] font-bold mb-2">
-                Password *
+                Account Security
               </label>
-              <div className="relative">
-                <input
-                  type={showEditPassword ? "text" : "password"}
-                  required
-                  value={editPassword}
-                  onChange={e => setEditPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full pl-10 pr-10 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b] font-mono text-sm"
-                />
-                <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8c8a86]" />
-                <button
-                  type="button"
-                  onClick={() => setShowEditPassword(!showEditPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#8c8a86] hover:text-[#4a4a48] p-1 cursor-pointer transition-colors"
-                  title={showEditPassword ? "Hide password" : "Show password"}
-                >
-                  {showEditPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
+              <div className="p-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs text-[#6e6c68]">
+                  <Lock size={14} className="text-[#5c869e]" />
+                  <span>Passwords managed securely via Auth</span>
+                </div>
+                {editingUser.email && (
+                  <button
+                    type="button"
+                    onClick={() => handleSendReset(editingUser.email!, editingUser.name)}
+                    className="text-xs text-[#5c869e] hover:underline font-bold"
+                  >
+                    Send Reset Link
+                  </button>
+                )}
               </div>
             </div>
 

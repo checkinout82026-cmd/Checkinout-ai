@@ -10,9 +10,9 @@ This document records all security fixes, refactoring, and hardening changes app
 | :--- | :--- | :--- | :--- | :--- |
 | **C1 / C2** | CRITICAL | Remove hardcoded plaintext credentials and universal password backdoors | **RESOLVED** | 2026-09-01 |
 | **C4** | CRITICAL | Purge real minor/family PII from repository and provide synthetic seed data | **RESOLVED** | 2026-09-01 |
-| **C5** | CRITICAL | Eliminate plaintext password storage in Firestore and client `localStorage` | In Progress | 2026-09-01 |
-| **H1 / H2** | HIGH | Enforce strict Firebase Auth and secure role assignment | Pending | — |
-| **C6 / H3** | CRITICAL / HIGH | Require real verification in Staff Approval modal for student checkout | Pending | — |
+| **C5** | CRITICAL | Eliminate plaintext password storage in Firestore and client `localStorage` | **RESOLVED** | 2026-09-01 |
+| **H1 / H2** | HIGH | Enforce strict Firebase Auth and secure role assignment | **RESOLVED** | 2026-09-01 |
+| **C6 / H3** | CRITICAL / HIGH | Require real verification in Staff Approval modal for student checkout | In Progress | 2026-09-01 |
 | **H5** | HIGH | Remove destructive auto-seeding logic and protect maintenance scripts | Pending | — |
 | **C3** | CRITICAL | Harden Firestore security rules with authenticated least-privilege policies | Pending | — |
 | **H4** | HIGH | Clarify simulated SMS notification status and state handling | Pending | — |
@@ -58,4 +58,46 @@ This document records all security fixes, refactoring, and hardening changes app
 - **Verification & Testing:**
   - Verified with global pattern search across the workspace that all real student names and phone numbers have been purged from source files.
   - Ran `bun run lint` and `bun run build` to ensure type integrity and schema compatibility across all views.
+
+---
+
+### [C5] Eliminate Plaintext Password Storage in Firestore and LocalStorage
+
+- **Issue Classification:** CRITICAL (C5: Plaintext passwords stored and synced everywhere)
+- **Date:** 2026-09-01
+- **Status:** **RESOLVED**
+- **Vulnerabilities Addressed:**
+  1. Plaintext passwords were written to Firestore `users` documents in `saveUsers` and `saveUser`.
+  2. All users with plaintext passwords were downloaded to clients and saved in `localStorage['checkin_users']`.
+  3. The `User` TypeScript interface contained a `password?: string` field.
+  4. The admin UI edit form prefilled and displayed plaintext passwords.
+- **Changes Applied:**
+  - `src/types.ts`: Removed `password?: string` from the `User` interface.
+  - `src/lib/db.ts`: Stripped `password` fields from Firestore synchronization and `localStorage['checkin_users']`. Added defensive sanitization in `getUsers()` and `saveUsers()`.
+  - `src/lib/auth.ts`: Removed `password` persistence when creating user documents. Passwords are only transmitted directly to Firebase Auth.
+  - `src/components/AdminStaff.tsx`: Removed plaintext password prefilling, display, and update fields in the user edit modal; replaced with secure password reset actions via email.
+  - `src/App.tsx`: Added an initialization routine to automatically scrub any legacy `password` fields from `localStorage`.
+- **Verification & Testing:**
+  - Ran `bun run lint` and `bun run build` to confirm full TypeScript type safety with no `password` property on `User`.
+  - Verified that all user saving operations write only sanitized profile fields to Firestore and localStorage.
+
+---
+
+### [H1 / H2] Enforce Strict Firebase Auth and Secure Role Assignment
+
+- **Issue Classification:** HIGH (H1: Authentication succeeds even when Firebase Auth fails, H2: Insecure email string role assignment)
+- **Date:** 2026-09-01
+- **Status:** **RESOLVED**
+- **Vulnerabilities Addressed:**
+  1. Login swallowed Firebase Auth errors and returned local matches regardless of whether credentials were valid.
+  2. Roles were insecurely assigned via substring matching `email.toLowerCase().includes('admin')`, allowing arbitrary users with "admin" in their email to self-escalate.
+  3. Google Sign-In matched arbitrary accounts against local usernames without strict identity checks.
+- **Changes Applied:**
+  - `src/lib/auth.ts`: Completely refactored `signInWithEmail` to strictly require Firebase Auth authentication (`signInWithEmailAndPassword`). Errors are no longer swallowed; invalid credentials strictly reject the login attempt.
+  - `src/lib/auth.ts`: Removed substring role inference (`email.includes('admin')`). Role defaults to `'staff'` unless explicitly assigned in the verified Firestore profile.
+  - Hardened error messages to prevent username enumeration (unified "Invalid username or password" response).
+- **Verification & Testing:**
+  - Verified TypeScript compilation and build passing with zero errors.
+  - Confirmed authentication flow requires valid Firebase Auth credentials.
+
 

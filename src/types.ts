@@ -5,7 +5,6 @@ export type AttendanceStatus = 'checked_in' | 'checked_out' | 'absent' | 'excuse
 export interface User {
   id: string;
   username: string;
-  password?: string;
   role: Role;
   name: string;
   fullName?: string;

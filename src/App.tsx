@@ -21,6 +21,26 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<string>('attendance');
 
   useEffect(() => {
+    // Sanitize any legacy cached passwords from localStorage
+    try {
+      const storedUserRaw = localStorage.getItem('activeUser');
+      if (storedUserRaw) {
+        const parsed = JSON.parse(storedUserRaw);
+        if (parsed && typeof parsed === 'object' && 'password' in parsed) {
+          delete parsed.password;
+          localStorage.setItem('activeUser', JSON.stringify(parsed));
+        }
+      }
+      const cachedUsersRaw = localStorage.getItem('checkin_users');
+      if (cachedUsersRaw) {
+        const parsedUsers = JSON.parse(cachedUsersRaw);
+        if (Array.isArray(parsedUsers)) {
+          const sanitized = parsedUsers.map(({ password, ...rest }: any) => rest);
+          localStorage.setItem('checkin_users', JSON.stringify(sanitized));
+        }
+      }
+    } catch {}
+
     // Initialize DB with seed data if empty
     db.init();
     

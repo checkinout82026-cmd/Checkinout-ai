@@ -21,7 +21,6 @@ export const defaultUsers: User[] = [
   { 
     id: 'admin_smith', 
     username: 'smith.admin', 
-    password: 'AdminSmith#2026', 
     role: 'admin', 
     name: 'Smith Admin', 
     fullName: 'Smith Admin', 
@@ -34,7 +33,6 @@ export const defaultUsers: User[] = [
   {
     id: 'staff_adams',
     username: 'adams.staff',
-    password: 'StaffAdams#2026',
     role: 'staff',
     name: 'Adams Staff',
     fullName: 'Adams Staff',
@@ -61,7 +59,10 @@ export const db = {
     const data = localStorage.getItem(USERS_KEY);
     if (data) {
       try {
-        cachedUsers = JSON.parse(data);
+        const parsed = JSON.parse(data);
+        if (Array.isArray(parsed)) {
+          cachedUsers = parsed.map(({ password, ...rest }: any) => rest as User);
+        }
       } catch (e) {
         console.error('Error parsing cached users', e);
       }
@@ -70,16 +71,17 @@ export const db = {
   },
 
   saveUsers: async (users: User[]) => {
-    cachedUsers = users;
-    localStorage.setItem(USERS_KEY, JSON.stringify(users));
+    // Strip any sensitive fields before caching or persisting
+    const sanitizedUsers = users.map(({ password, ...rest }: any) => rest as User);
+    cachedUsers = sanitizedUsers;
+    localStorage.setItem(USERS_KEY, JSON.stringify(sanitizedUsers));
     try {
       const batch = writeBatch(firestore);
-      users.forEach(u => {
+      sanitizedUsers.forEach(u => {
         const ref = doc(firestore, 'users', u.id);
         batch.set(ref, {
           id: u.id,
           username: u.username,
-          password: u.password || '',
           name: u.name || u.fullName || '',
           fullName: u.fullName || u.name || '',
           email: u.email || '',
@@ -101,8 +103,9 @@ export const db = {
       const usersSnap = await getDocs(collection(firestore, 'users'));
       const list: User[] = [];
       usersSnap.forEach(docSnap => {
-        const data = docSnap.data() as User;
-        list.push({ ...data, id: data.id || docSnap.id });
+        const data = docSnap.data() as any;
+        const { password, ...sanitized } = data;
+        list.push({ ...sanitized, id: sanitized.id || docSnap.id });
       });
 
       const nextUsers = list.length > 0 ? list : defaultUsers;
@@ -116,31 +119,31 @@ export const db = {
   },
 
   saveUser: async (user: User) => {
+    const { password, ...sanitizedUser } = user as any;
     const current = db.getUsers();
-    const index = current.findIndex(u => u.id === user.id);
+    const index = current.findIndex(u => u.id === sanitizedUser.id);
     let updated: User[];
     if (index >= 0) {
       updated = [...current];
-      updated[index] = user;
+      updated[index] = sanitizedUser;
     } else {
-      updated = [...current, user];
+      updated = [...current, sanitizedUser];
     }
     cachedUsers = updated;
     localStorage.setItem(USERS_KEY, JSON.stringify(updated));
 
     try {
-      const ref = doc(firestore, 'users', user.id);
+      const ref = doc(firestore, 'users', sanitizedUser.id);
       await setDoc(ref, {
-        id: user.id,
-        username: user.username,
-        password: user.password || '',
-        name: user.name || user.fullName || '',
-        fullName: user.fullName || user.name || '',
-        email: user.email || '',
-        phone: user.phone || '',
-        role: user.role,
-        isActive: user.isActive !== undefined ? user.isActive : true,
-        createdAt: user.createdAt || new Date().toISOString(),
+        id: sanitizedUser.id,
+        username: sanitizedUser.username,
+        name: sanitizedUser.name || sanitizedUser.fullName || '',
+        fullName: sanitizedUser.fullName || sanitizedUser.name || '',
+        email: sanitizedUser.email || '',
+        phone: sanitizedUser.phone || '',
+        role: sanitizedUser.role,
+        isActive: sanitizedUser.isActive !== undefined ? sanitizedUser.isActive : true,
+        createdAt: sanitizedUser.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }, { merge: true });
     } catch (err) {

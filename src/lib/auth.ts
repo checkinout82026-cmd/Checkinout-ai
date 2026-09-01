@@ -32,16 +32,16 @@ export async function getAppUserFromFirebase(firebaseUser: FirebaseUser): Promis
         email: email || data.email,
         name: data.name || displayName,
         fullName: data.fullName || displayName,
-        role: data.role || (email.toLowerCase().includes('admin') ? 'admin' : 'staff'),
+        role: data.role || 'staff',
         username: data.username || email.split('@')[0] || uid.slice(0, 8),
       };
     }
 
-    // Check if user exists by email matching in existing users
+    // Check if user exists by exact email matching in existing users
     const allUsers = await db.loadUsersFromFirestore();
-    const existing = allUsers.find(u => u.email?.toLowerCase() === email.toLowerCase() || u.username?.toLowerCase() === email.split('@')[0]?.toLowerCase());
+    const existing = allUsers.find(u => u.email?.toLowerCase() === email.toLowerCase());
     
-    const role: Role = existing ? existing.role : (email.toLowerCase().includes('admin') ? 'admin' : 'staff');
+    const role: Role = existing ? existing.role : 'staff';
     const newUser: User = {
       id: uid,
       username: existing?.username || email.split('@')[0] || `user_${uid.slice(0, 6)}`,
@@ -66,7 +66,7 @@ export async function getAppUserFromFirebase(firebaseUser: FirebaseUser): Promis
       name: displayName,
       fullName: displayName,
       email: email,
-      role: email.toLowerCase().includes('admin') ? 'admin' : 'staff',
+      role: 'staff',
       isActive: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -74,14 +74,17 @@ export async function getAppUserFromFirebase(firebaseUser: FirebaseUser): Promis
   }
 }
 
-// Sign in with Username or Email via Firestore & Firebase Auth
+// Sign in with Username or Email via Firebase Auth
 export async function signInWithEmail(usernameOrEmail: string, password: string): Promise<User> {
   const cleanInput = usernameOrEmail.trim();
   if (!cleanInput) {
     throw new Error('Please enter your username');
   }
+  if (!password) {
+    throw new Error('Please enter your password');
+  }
 
-  // Load all users from Firestore / local storage
+  // Load all users from Firestore / local storage to resolve email
   const allUsers = await db.loadUsersFromFirestore();
 
   // Look for a match by username (case-insensitive) or email
@@ -100,41 +103,26 @@ export async function signInWithEmail(usernameOrEmail: string, password: string)
     }
   }
 
-  // 1. Check direct database match first for quick and reliable username authentication
-  if (match) {
-    const isPasswordCorrect = Boolean(match.password && match.password === password);
-
-    if (isPasswordCorrect) {
-      // Try to sign in or register with Firebase Auth in the background
-      try {
-        const userCredential = await signInWithEmailAndPassword(auth, emailToUse, password);
-        const fbAppUser = await getAppUserFromFirebase(userCredential.user);
-        return { ...match, ...fbAppUser, username: match.username || fbAppUser.username };
-      } catch {
-        // Return verified match directly
-        return match;
-      }
-    } else {
-      throw new Error('Incorrect password');
-    }
-  }
-
-  // 2. If not matched in local/Firestore records, try standard Firebase Auth
   try {
     const userCredential = await signInWithEmailAndPassword(auth, emailToUse, password);
     const appUser = await getAppUserFromFirebase(userCredential.user);
-    return appUser;
+    return {
+      ...appUser,
+      username: match?.username || appUser.username
+    };
   } catch (authError: any) {
-    console.warn('Firebase Auth notice:', authError?.code, authError?.message);
+    console.warn('Firebase Auth error:', authError?.code);
 
-    if (authError.code === 'auth/wrong-password' || authError.code === 'auth/invalid-credential') {
-      throw new Error('Incorrect password');
-    }
-    if (authError.code === 'auth/user-not-found') {
-      throw new Error('Username not found');
+    if (
+      authError.code === 'auth/wrong-password' || 
+      authError.code === 'auth/invalid-credential' ||
+      authError.code === 'auth/user-not-found' ||
+      authError.code === 'auth/invalid-email'
+    ) {
+      throw new Error('Invalid username or password');
     }
 
-    throw new Error('Invalid username or password');
+    throw new Error(authError?.message || 'Authentication failed');
   }
 }
 
@@ -167,7 +155,6 @@ export async function registerStaffOrAdmin(
   const newUser: User = {
     id: uid,
     username,
-    password: cleanPass,
     name: cleanName,
     fullName: cleanName,
     email: cleanEmail,
