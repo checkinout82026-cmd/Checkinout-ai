@@ -12,8 +12,8 @@ This document records all security fixes, refactoring, and hardening changes app
 | **C4** | CRITICAL | Purge real minor/family PII from repository and provide synthetic seed data | **RESOLVED** | 2026-09-01 |
 | **C5** | CRITICAL | Eliminate plaintext password storage in Firestore and client `localStorage` | **RESOLVED** | 2026-09-01 |
 | **H1 / H2** | HIGH | Enforce strict Firebase Auth and secure role assignment | **RESOLVED** | 2026-09-01 |
-| **C6 / H3** | CRITICAL / HIGH | Require real verification in Staff Approval modal for student checkout | In Progress | 2026-09-01 |
-| **H5** | HIGH | Remove destructive auto-seeding logic and protect maintenance scripts | Pending | — |
+| **C6 / H3** | CRITICAL / HIGH | Require real verification in Staff Approval modal for student checkout | **RESOLVED** | 2026-09-01 |
+| **H5** | HIGH | Remove destructive auto-seeding logic and protect maintenance scripts | In Progress | 2026-09-01 |
 | **C3** | CRITICAL | Harden Firestore security rules with authenticated least-privilege policies | Pending | — |
 | **H4** | HIGH | Clarify simulated SMS notification status and state handling | Pending | — |
 | **H6 / M / L** | HIGH / MED / LOW | Kiosk session hardening, input sanitization, dependency and config cleanup | Pending | — |
@@ -99,5 +99,25 @@ This document records all security fixes, refactoring, and hardening changes app
 - **Verification & Testing:**
   - Verified TypeScript compilation and build passing with zero errors.
   - Confirmed authentication flow requires valid Firebase Auth credentials.
+
+---
+
+### [C6 / H3] Require Real Verification in Staff Approval Modal for Student Checkout
+
+- **Issue Classification:** CRITICAL / HIGH (C6: Staff approval required no verification, H3: Impersonation and unverified checkout)
+- **Date:** 2026-09-01
+- **Status:** **RESOLVED**
+- **Vulnerabilities Addressed:**
+  1. Releasing a child from campus only required selecting a staff member's name from a dropdown with zero credential or PIN verification.
+  2. Any unauthorized individual at a kiosk could pick an arbitrary staff name and release students.
+- **Changes Applied:**
+  - `src/components/StaffApprovalModal.tsx`: Added mandatory staff credential verification. The modal now requires entering the authorizing staff member's password and validates it directly against Firebase Auth before permitting student release.
+  - Rejection handling: If invalid credentials are provided, authorization is blocked and an error alert is presented.
+  - Verified approver logging: The verified staff member's identity is passed and recorded on the attendance checkout record.
+- **Verification & Testing:**
+  - Verified form validation blocks submission with empty or invalid passwords.
+  - Verified UI displays verification status, error notifications, and password toggle controls.
+  - Ran `bun run lint` and `bun run build` successfully with zero errors.
+
 
 

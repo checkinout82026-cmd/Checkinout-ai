@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../lib/db';
 import { User, Student } from '../types';
+import { auth } from '../lib/firebase';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import toast from 'react-hot-toast';
-import { ShieldCheck, Lock, X, CheckCircle2, UserCheck, AlertTriangle } from 'lucide-react';
+import { ShieldCheck, Lock, X, CheckCircle2, AlertTriangle, Loader2, Eye, EyeOff } from 'lucide-react';
 
 interface StaffApprovalModalProps {
   isOpen: boolean;
@@ -21,13 +23,21 @@ export function StaffApprovalModal({
 }: StaffApprovalModalProps) {
   const [staffUsers, setStaffUsers] = useState<User[]>([]);
   const [selectedStaffId, setSelectedStaffId] = useState('');
+  const [staffPassword, setStaffPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      setStaffPassword('');
+      setErrorMessage('');
+      return;
+    }
 
     let isMounted = true;
     setErrorMessage('');
+    setStaffPassword('');
 
     const applyUsers = (users: User[]) => {
       if (!isMounted) return;
@@ -46,7 +56,7 @@ export function StaffApprovalModal({
 
   if (!isOpen) return null;
 
-  const handleVerifyAndApprove = (e: React.FormEvent) => {
+  const handleVerifyAndApprove = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
     
@@ -56,11 +66,25 @@ export function StaffApprovalModal({
       return;
     }
 
-    toast.success(`Check-out verified by ${staff.name} (${staff.role.toUpperCase()})`);
-    onApproved(staff);
-  };
+    if (!staffPassword.trim()) {
+      setErrorMessage('Please enter your staff password to authorize release.');
+      return;
+    }
 
-  const selectedStaff = staffUsers.find(u => u.id === selectedStaffId);
+    setIsVerifying(true);
+    try {
+      const staffEmail = staff.email || `${staff.username.toLowerCase()}@school.org`;
+      await signInWithEmailAndPassword(auth, staffEmail, staffPassword.trim());
+      toast.success(`Check-out verified by ${staff.name} (${staff.role.toUpperCase()})`);
+      setStaffPassword('');
+      onApproved(staff);
+    } catch (err: any) {
+      console.warn('Staff authorization verification error:', err?.code);
+      setErrorMessage('Invalid staff password. Student release cannot be authorized without valid credentials.');
+    } finally {
+      setIsVerifying(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-200">
@@ -68,7 +92,7 @@ export function StaffApprovalModal({
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-5 right-5 text-[#8c8a86] hover:text-[#4a4a48] p-2 rounded-full hover:bg-[#f8f6f3] transition-colors"
+          className="absolute top-5 right-5 text-[#8c8a86] hover:text-[#4a4a48] p-2 rounded-full hover:bg-[#f8f6f3] transition-colors cursor-pointer"
         >
           <X size={18} />
         </button>
@@ -80,7 +104,7 @@ export function StaffApprovalModal({
           </div>
           <div>
             <h2 className="text-xl font-serif font-semibold text-[#4a4a48]">Staff Authorization</h2>
-            <p className="text-xs text-[#8c8a86]">Required to release student from campus</p>
+            <p className="text-xs text-[#8c8a86]">Credentials required to authorize student release</p>
           </div>
         </div>
 
@@ -107,7 +131,7 @@ export function StaffApprovalModal({
         <form onSubmit={handleVerifyAndApprove} className="space-y-4">
           <div>
             <label className="block text-[10px] uppercase tracking-widest text-[#8c8a86] font-bold mb-1.5">
-              Authorizing Staff / Admin
+              Authorizing Staff Member *
             </label>
             <select
               value={selectedStaffId}
@@ -126,20 +150,59 @@ export function StaffApprovalModal({
             </select>
           </div>
 
+          <div>
+            <label className="block text-[10px] uppercase tracking-widest text-[#8c8a86] font-bold mb-1.5">
+              Staff Verification Password *
+            </label>
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={staffPassword}
+                onChange={(e) => {
+                  setStaffPassword(e.target.value);
+                  setErrorMessage('');
+                }}
+                placeholder="Enter staff password"
+                required
+                className="w-full pl-10 pr-10 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl text-sm outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b]"
+              />
+              <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8c8a86]" />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#8c8a86] hover:text-[#4a4a48] p-1 cursor-pointer transition-colors"
+                title={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
+
           <div className="pt-3 flex gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-3 bg-[#f2efe9] hover:bg-[#edeae6] text-[#8c8a86] font-bold rounded-2xl transition-colors text-sm"
+              disabled={isVerifying}
+              className="flex-1 py-3 bg-[#f2efe9] hover:bg-[#edeae6] text-[#8c8a86] font-bold rounded-2xl transition-colors text-sm cursor-pointer disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 py-3 bg-[#d98466] hover:opacity-90 text-white font-bold rounded-2xl transition-all shadow-sm flex items-center justify-center gap-2 text-sm disabled:opacity-50"
+              disabled={isVerifying}
+              className="flex-1 py-3 bg-[#d98466] hover:opacity-90 text-white font-bold rounded-2xl transition-all shadow-sm flex items-center justify-center gap-2 text-sm disabled:opacity-50 cursor-pointer"
             >
-              <CheckCircle2 size={16} />
-              Approve & Release
+              {isVerifying ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Verifying...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 size={16} />
+                  Verify & Release
+                </>
+              )}
             </button>
           </div>
         </form>
