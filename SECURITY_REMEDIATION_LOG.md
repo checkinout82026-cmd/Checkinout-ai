@@ -9,8 +9,8 @@ This document records all security fixes, refactoring, and hardening changes app
 | Issue ID | Category | Description | Status | Commit / Date |
 | :--- | :--- | :--- | :--- | :--- |
 | **C1 / C2** | CRITICAL | Remove hardcoded plaintext credentials and universal password backdoors | **RESOLVED** | 2026-09-01 |
-| **C4** | CRITICAL | Purge real minor/family PII from repository and provide synthetic seed data | Pending | — |
-| **C5** | CRITICAL | Eliminate plaintext password storage in Firestore and client `localStorage` | Pending | — |
+| **C4** | CRITICAL | Purge real minor/family PII from repository and provide synthetic seed data | **RESOLVED** | 2026-09-01 |
+| **C5** | CRITICAL | Eliminate plaintext password storage in Firestore and client `localStorage` | In Progress | 2026-09-01 |
 | **H1 / H2** | HIGH | Enforce strict Firebase Auth and secure role assignment | Pending | — |
 | **C6 / H3** | CRITICAL / HIGH | Require real verification in Staff Approval modal for student checkout | Pending | — |
 | **H5** | HIGH | Remove destructive auto-seeding logic and protect maintenance scripts | Pending | — |
@@ -40,3 +40,22 @@ This document records all security fixes, refactoring, and hardening changes app
   - Tested build with `bun run lint` and `bun run build` (both succeeded with 0 errors).
   - Verified no occurrences of `Giridharan#20` remain in source code.
   - Verified no occurrences of backdoor fallback `password === 'password'` remain in source code.
+
+---
+
+### [C4] Purge Real Student/Family PII and Provide Synthetic Seed Data
+
+- **Issue Classification:** CRITICAL (C4: Real PII of minors committed to source control)
+- **Date:** 2026-09-01
+- **Status:** **RESOLVED**
+- **Vulnerabilities Addressed:**
+  1. `actual_students.csv` contained 103 real children names, student IDs, parent phone numbers, and family contact records.
+  2. `src/lib/seedData.ts` contained 3,540 lines of hardcoded real student PII that was being auto-seeded into Firestore.
+- **Changes Applied:**
+  - `actual_students.csv`: Replaced with 10 synthetic student records using fictitious names (e.g. "Alex Morgan", "Emma Johnson") and reserved dummy telephone numbers (`555-01xx`).
+  - `src/lib/seedData.ts`: Replaced 3,540 lines of real PII with `SYNTHETIC_STUDENTS`, providing mock student profiles and sample attendance entries without any actual PII.
+  - Provided guidance for repository owners on cleaning historical commits using `git-filter-repo` when ready for git history cleanup.
+- **Verification & Testing:**
+  - Verified with global pattern search across the workspace that all real student names and phone numbers have been purged from source files.
+  - Ran `bun run lint` and `bun run build` to ensure type integrity and schema compatibility across all views.
+
