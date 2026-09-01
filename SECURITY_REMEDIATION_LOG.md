@@ -14,8 +14,8 @@ This document records all security fixes, refactoring, and hardening changes app
 | **H1 / H2** | HIGH | Enforce strict Firebase Auth and secure role assignment | **RESOLVED** | 2026-09-01 |
 | **C6 / H3** | CRITICAL / HIGH | Require real verification in Staff Approval modal for student checkout | **RESOLVED** | 2026-09-01 |
 | **H5** | HIGH | Remove destructive auto-seeding logic and protect maintenance scripts | **RESOLVED** | 2026-09-01 |
-| **C3** | CRITICAL | Harden Firestore security rules with authenticated least-privilege policies | In Progress | 2026-09-01 |
-| **H4** | HIGH | Clarify simulated SMS notification status and state handling | Pending | — |
+| **C3** | CRITICAL | Harden Firestore security rules with authenticated least-privilege policies | **RESOLVED** | 2026-09-01 |
+| **H4** | HIGH | Clarify simulated SMS notification status and state handling | In Progress | 2026-09-01 |
 | **H6 / M / L** | HIGH / MED / LOW | Kiosk session hardening, input sanitization, dependency and config cleanup | Pending | — |
 
 ---
@@ -135,6 +135,25 @@ This document records all security fixes, refactoring, and hardening changes app
 - **Verification & Testing:**
   - Verified scripts exit safely when invoked without `--confirm`.
   - Ran `bun run lint` and `bun run build` with zero errors.
+
+---
+
+### [C3] Lockdown Firestore Security Rules
+
+- **Issue Classification:** CRITICAL (C3: Firestore database open to the world)
+- **Date:** 2026-09-01
+- **Status:** **RESOLVED**
+- **Vulnerabilities Addressed:**
+  1. `firestore.rules` previously contained `allow read, write: if true;` across all collections.
+  2. Any anonymous party could read/overwrite/delete the entire database or forge admin records.
+  3. `firebase-blueprint.json` had plaintext `password` schema definition.
+- **Changes Applied:**
+  - `firestore.rules`: Replaced wide-open rules with strict role-based policies requiring authentication (`request.auth != null`), role checking helpers (`isAdmin()`, `isStaffOrAdmin()`), and preventing `password` field persistence.
+  - `firebase-blueprint.json`: Removed `password` from the User entity schema definition.
+- **Verification & Testing:**
+  - Verified rule syntax and conditions for all collections (`users`, `students`, `authorized_pickups`, `attendance`).
+  - Ran `bun run lint` and `bun run build` to confirm integration.
+
 
 
 
