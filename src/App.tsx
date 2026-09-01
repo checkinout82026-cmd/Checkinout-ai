@@ -94,6 +94,9 @@ export default function App() {
     setUser(null);
     localStorage.removeItem('activeUser');
     localStorage.removeItem('appMode');
+    localStorage.removeItem('checkin_users');
+    localStorage.removeItem('checkin_students');
+    localStorage.removeItem('checkin_attendance');
   };
 
   const switchMode = (mode: 'kiosk' | 'dashboard') => {

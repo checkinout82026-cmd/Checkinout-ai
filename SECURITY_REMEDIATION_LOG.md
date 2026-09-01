@@ -16,7 +16,7 @@ This document records all security fixes, refactoring, and hardening changes app
 | **H5** | HIGH | Remove destructive auto-seeding logic and protect maintenance scripts | **RESOLVED** | 2026-09-01 |
 | **C3** | CRITICAL | Harden Firestore security rules with authenticated least-privilege policies | **RESOLVED** | 2026-09-01 |
 | **H4** | HIGH | Clarify simulated SMS notification status and state handling | **RESOLVED** | 2026-09-01 |
-| **H6 / M / L** | HIGH / MED / LOW | Kiosk session hardening, input sanitization, dependency and config cleanup | In Progress | 2026-09-01 |
+| **H6 / M / L** | HIGH / MED / LOW | Kiosk session hardening, input sanitization, dependency and config cleanup | **RESOLVED** | 2026-09-01 |
 
 ---
 
@@ -170,6 +170,29 @@ This document records all security fixes, refactoring, and hardening changes app
 - **Verification & Testing:**
   - Verified UI displays "Demo Simulation" badges and clear simulation notices.
   - Ran `bun run lint` and `bun run build` with zero errors.
+
+---
+
+### [H6 / M / L] Kiosk Session Hardening, Input Sanitization & Dependency Cleanup
+
+- **Issue Classification:** HIGH / MEDIUM / LOW (H6: Session & PII persistence on shared kiosks, M3: Unused dependencies, M5: Input parsing)
+- **Date:** 2026-09-01
+- **Status:** **RESOLVED**
+- **Vulnerabilities Addressed:**
+  1. On shared kiosks, logging out left full student and attendance records cached in browser `localStorage`.
+  2. Over-provisioned and unused dependencies (`express`, `dotenv`, `@google/genai`, `react-router-dom`, `motion`) inflated attack surface.
+  3. `metadata.json` contained unconfigured capability flags.
+  4. CSV import fallback generated predictable, collision-prone IDs (`1000${i}`).
+- **Changes Applied:**
+  - `src/App.tsx`: Updated `handleLogout` to comprehensively wipe `checkin_users`, `checkin_students`, and `checkin_attendance` from `localStorage` upon logout.
+  - `package.json`: Removed 7 unused dependencies and duplicate build tools. Updated dev script to default to localhost instead of wildcard `0.0.0.0`.
+  - `metadata.json`: Removed `MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API` claim.
+  - `src/lib/csvParser.ts`: Upgraded fallback ID generation to use `crypto.randomUUID()`.
+- **Verification & Testing:**
+  - Pruned unused dependencies and updated `bun.lock` (7 packages safely removed).
+  - Executed `bun run lint` and `bun run build` with zero errors.
+  - Verified bundle size and cleanliness.
+
 
 
 

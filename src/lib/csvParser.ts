@@ -203,7 +203,7 @@ export function parseStudentCSV(csvText: string): Student[] {
       const cols = rows[i];
       if (cols.length === 0 || !cols.some(c => c.length > 0)) continue;
 
-      const sid = (idIdx !== -1 && cols[idIdx]) ? cols[idIdx].trim().replace(/^"+|"+$/g, '') : `8402${i.toString().padStart(9, '0')}`;
+      const sid = (idIdx !== -1 && cols[idIdx]) ? cols[idIdx].trim().replace(/^"+|"+$/g, '') : `stu_${crypto.randomUUID().slice(0, 8)}`;
       
       let sName = '';
       if (fNameIdx !== -1 && lNameIdx !== -1 && (cols[fNameIdx] || cols[lNameIdx])) {
@@ -300,7 +300,7 @@ export function parseStudentCSV(csvText: string): Student[] {
     const cols = rows[i];
     if (cols.length === 0 || !cols.some(c => c.length > 0)) continue;
 
-    const studentId = (idIdx !== -1 && cols[idIdx]) ? cols[idIdx].trim().replace(/^"+|"+$/g, '') : `1000${i}`;
+    const studentId = (idIdx !== -1 && cols[idIdx]) ? cols[idIdx].trim().replace(/^"+|"+$/g, '') : `stu_${crypto.randomUUID().slice(0, 8)}`;
     const name = (nameIdx !== -1 && cols[nameIdx]) ? cols[nameIdx].trim() : `Student ${studentId}`;
     const grade = (gradeIdx !== -1 && cols[gradeIdx]) ? cols[gradeIdx].trim() : 'Kindergarten';
     const pName = (parentNameIdx !== -1 && cols[parentNameIdx]) ? cols[parentNameIdx].trim() : `${name} Guardian`;
