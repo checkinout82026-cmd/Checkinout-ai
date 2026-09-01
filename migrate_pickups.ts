@@ -1,10 +1,16 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, getDocs, setDoc, doc, deleteDoc } from 'firebase/firestore';
+import { getFirestore, collection, getDocs, setDoc, doc } from 'firebase/firestore';
 import { readFileSync } from 'fs';
+
+if (!process.argv.includes('--confirm')) {
+  console.error('Safety Guard: migrate_pickups will update pickup records. To proceed, pass the --confirm flag:');
+  console.error('bun migrate_pickups.ts --confirm');
+  process.exit(1);
+}
 
 const config = JSON.parse(readFileSync('firebase-applet-config.json', 'utf-8'));
 const app = initializeApp(config);
-const db = getFirestore(app, config.firestoreDatabaseId);
+const db = config.firestoreDatabaseId ? getFirestore(app, config.firestoreDatabaseId) : getFirestore(app);
 
 async function run() {
   const attSnap = await getDocs(collection(db, 'authorized_pickups'));

@@ -13,8 +13,8 @@ This document records all security fixes, refactoring, and hardening changes app
 | **C5** | CRITICAL | Eliminate plaintext password storage in Firestore and client `localStorage` | **RESOLVED** | 2026-09-01 |
 | **H1 / H2** | HIGH | Enforce strict Firebase Auth and secure role assignment | **RESOLVED** | 2026-09-01 |
 | **C6 / H3** | CRITICAL / HIGH | Require real verification in Staff Approval modal for student checkout | **RESOLVED** | 2026-09-01 |
-| **H5** | HIGH | Remove destructive auto-seeding logic and protect maintenance scripts | In Progress | 2026-09-01 |
-| **C3** | CRITICAL | Harden Firestore security rules with authenticated least-privilege policies | Pending | — |
+| **H5** | HIGH | Remove destructive auto-seeding logic and protect maintenance scripts | **RESOLVED** | 2026-09-01 |
+| **C3** | CRITICAL | Harden Firestore security rules with authenticated least-privilege policies | In Progress | 2026-09-01 |
 | **H4** | HIGH | Clarify simulated SMS notification status and state handling | Pending | — |
 | **H6 / M / L** | HIGH / MED / LOW | Kiosk session hardening, input sanitization, dependency and config cleanup | Pending | — |
 
@@ -118,6 +118,24 @@ This document records all security fixes, refactoring, and hardening changes app
   - Verified form validation blocks submission with empty or invalid passwords.
   - Verified UI displays verification status, error notifications, and password toggle controls.
   - Ran `bun run lint` and `bun run build` successfully with zero errors.
+
+---
+
+### [H5] Remove Destructive Auto-Seeding and Protect Maintenance Scripts
+
+- **Issue Classification:** HIGH (H5: Destructive auto-seeding and unguarded maintenance scripts)
+- **Date:** 2026-09-01
+- **Status:** **RESOLVED**
+- **Vulnerabilities Addressed:**
+  1. `db.init()` wiped and deleted all student documents whenever document count was <= 10 or matched legacy dummy names.
+  2. Standalone scripts (`clear_data.js`, `clear_data2.js`, `seed_firestore.ts`, `migrate_attendance.ts`, `migrate_pickups.ts`) lacked safety confirmation flags and used mismatched database IDs.
+- **Changes Applied:**
+  - `src/lib/db.ts`: Removed destructive document deletion logic in `db.init()`. Firestore student collection is now only populated if it is completely empty (`studentsSnap.empty`), without deleting existing records.
+  - Maintenance scripts: Added mandatory `--confirm` CLI flag checks to `clear_data.js`, `clear_data2.js`, `seed_firestore.ts`, `migrate_attendance.ts`, and `migrate_pickups.ts`. Standardized database instance initialization to use `config.firestoreDatabaseId`.
+- **Verification & Testing:**
+  - Verified scripts exit safely when invoked without `--confirm`.
+  - Ran `bun run lint` and `bun run build` with zero errors.
+
 
 
 

@@ -3,9 +3,15 @@ import { getFirestore, doc, setDoc, deleteDoc, getDocs, collection } from 'fireb
 import { readFileSync } from 'fs';
 import { TEN_STUDENTS } from './src/lib/seedData';
 
+if (!process.argv.includes('--confirm')) {
+  console.error('Safety Guard: seed_firestore will overwrite student collections. To proceed, pass the --confirm flag:');
+  console.error('bun seed_firestore.ts --confirm');
+  process.exit(1);
+}
+
 const config = JSON.parse(readFileSync('firebase-applet-config.json', 'utf-8'));
 const app = initializeApp(config);
-const db = getFirestore(app, config.firestoreDatabaseId);
+const db = config.firestoreDatabaseId ? getFirestore(app, config.firestoreDatabaseId) : getFirestore(app);
 
 async function run() {
   console.log('Clearing existing...');
@@ -14,7 +20,7 @@ async function run() {
     await deleteDoc(doc(db, 'students', docSnap.id));
   }
 
-  console.log('Seeding 10 students...');
+  console.log('Seeding synthetic students...');
   for (const student of TEN_STUDENTS) {
     await setDoc(doc(db, 'students', student.id), student);
   }

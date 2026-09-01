@@ -2,9 +2,15 @@ import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, getDocs, deleteDoc, doc, setDoc } from 'firebase/firestore';
 import { readFileSync } from 'fs';
 
+if (!process.argv.includes('--confirm')) {
+  console.error('Safety Guard: clear_data2 will migrate/delete documents. To proceed, pass the --confirm flag:');
+  console.error('node clear_data2.js --confirm');
+  process.exit(1);
+}
+
 const config = JSON.parse(readFileSync('firebase-applet-config.json', 'utf-8'));
 const app = initializeApp(config);
-const db = getFirestore(app, config.firestoreDatabaseId);
+const db = config.firestoreDatabaseId ? getFirestore(app, config.firestoreDatabaseId) : getFirestore(app);
 
 async function run() {
   console.log('Fetching students...');

@@ -722,20 +722,9 @@ export const db = {
       }
 
       const studentsSnap = await getDocs(collection(firestore, 'students'));
-      // If Firestore contains the 10 dummy students (e.g. Liam Smith) or is empty, seed the full actual student roster
-      const hasDummyNamesInFirestore = studentsSnap.docs.some(d => {
-        const data = d.data();
-        return data.name === 'Liam Smith' || data.name === 'Noah Johnson';
-      });
-
-      if (studentsSnap.empty || hasDummyNamesInFirestore || studentsSnap.size <= 10) {
-        console.log('Seeding actual student roster to Firestore...');
-        // Delete existing dummy docs
-        for (const d of studentsSnap.docs) {
-          try {
-            await deleteDoc(doc(firestore, 'students', d.id));
-          } catch (e) {}
-        }
+      // Only seed initial synthetic students if the collection is completely empty
+      if (studentsSnap.empty) {
+        console.log('Seeding initial synthetic student roster to Firestore...');
         await db.saveStudents(defaultStudents);
       } else {
         await db.loadStudentsFromFirestore();
