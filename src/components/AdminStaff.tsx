@@ -53,7 +53,11 @@ export function AdminStaff() {
     }
 
     const cleanEmail = email.trim() || `${cleanUsername}@school.org`;
-    const cleanPassword = password.trim() || 'password';
+    const cleanPassword = password.trim();
+    if (!cleanPassword || cleanPassword.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -134,7 +138,7 @@ export function AdminStaff() {
         username: cleanUsername,
         name: editName.trim(),
         fullName: editName.trim(),
-        password: editPassword.trim() || editingUser.password || 'password',
+        password: editPassword.trim() || editingUser.password || '',
         email: editEmail.trim() || `${cleanUsername}@school.org`,
         phone: editPhone.trim(),
         role: editRole,

@@ -102,11 +102,7 @@ export async function signInWithEmail(usernameOrEmail: string, password: string)
 
   // 1. Check direct database match first for quick and reliable username authentication
   if (match) {
-    const isPasswordCorrect = 
-      (match.password && match.password === password) ||
-      (match.username?.toLowerCase() === 'keshavkousik' && (password === 'Giridharan#20' || password === match.password)) ||
-      (!match.password && password === 'Giridharan#20') ||
-      (password === 'password');
+    const isPasswordCorrect = Boolean(match.password && match.password === password);
 
     if (isPasswordCorrect) {
       // Try to sign in or register with Firebase Auth in the background

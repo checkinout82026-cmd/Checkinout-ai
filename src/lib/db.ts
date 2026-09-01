@@ -19,26 +19,26 @@ const ATTENDANCE_KEY = 'checkin_attendance';
 
 export const defaultUsers: User[] = [
   { 
-    id: 'admin_keshav', 
-    username: 'KeshavKousik', 
-    password: 'Giridharan#20', 
+    id: 'admin_smith', 
+    username: 'smith.admin', 
+    password: 'AdminSmith#2026', 
     role: 'admin', 
-    name: 'Keshav Kousik', 
-    fullName: 'Keshav Kousik', 
-    email: 'keshavkousik@school.com', 
+    name: 'Smith Admin', 
+    fullName: 'Smith Admin', 
+    email: 'smith.admin@school.com', 
     phone: '555-0100', 
     isActive: true, 
     createdAt: new Date().toISOString(), 
     updatedAt: new Date().toISOString() 
   },
   {
-    id: 'staff_rachel',
-    username: 'adams.rachel',
-    password: 'Password123!',
+    id: 'staff_adams',
+    username: 'adams.staff',
+    password: 'StaffAdams#2026',
     role: 'staff',
-    name: 'Adams Rachel',
-    fullName: 'Adams Rachel',
-    email: 'rachel.adams@school.com',
+    name: 'Adams Staff',
+    fullName: 'Adams Staff',
+    email: 'adams.staff@school.com',
     phone: '555-0102',
     isActive: true,
     createdAt: new Date().toISOString(),
@@ -79,7 +79,7 @@ export const db = {
         batch.set(ref, {
           id: u.id,
           username: u.username,
-          password: u.password || 'password',
+          password: u.password || '',
           name: u.name || u.fullName || '',
           fullName: u.fullName || u.name || '',
           email: u.email || '',
@@ -104,19 +104,6 @@ export const db = {
         const data = docSnap.data() as User;
         list.push({ ...data, id: data.id || docSnap.id });
       });
-
-      // If old admin_smith exists, replace with or upgrade to admin_keshav
-      const smithIndex = list.findIndex(u => u.id === 'admin_smith' || u.username === 'smith.admin');
-      if (smithIndex >= 0) {
-        list[smithIndex] = defaultUsers[0];
-        await setDoc(doc(firestore, 'users', 'admin_keshav'), defaultUsers[0], { merge: true });
-        try { await deleteDoc(doc(firestore, 'users', 'admin_smith')); } catch {}
-      }
-
-      if (!list.some(u => u.username?.toLowerCase() === 'keshavkousik' || u.id === 'admin_keshav')) {
-        list.unshift(defaultUsers[0]);
-        await setDoc(doc(firestore, 'users', 'admin_keshav'), defaultUsers[0], { merge: true });
-      }
 
       const nextUsers = list.length > 0 ? list : defaultUsers;
       cachedUsers = nextUsers;
@@ -146,7 +133,7 @@ export const db = {
       await setDoc(ref, {
         id: user.id,
         username: user.username,
-        password: user.password || 'password',
+        password: user.password || '',
         name: user.name || user.fullName || '',
         fullName: user.fullName || user.name || '',
         email: user.email || '',
