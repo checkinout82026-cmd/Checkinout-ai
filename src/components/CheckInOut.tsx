@@ -153,7 +153,8 @@ export function CheckInOut({ user }: { user: User }) {
         checkInStaffName: staffDisplayName,
         checkInMethod: 'staff_manual',
         checkOutTime: null,
-        smsNotificationSent: true,
+        smsNotificationSent: false,
+        smsStatus: 'disabled',
         smsSentAt: now,
         createdAt: now,
         updatedAt: now
@@ -214,7 +215,8 @@ export function CheckInOut({ user }: { user: User }) {
         checkOutStaffName: staffDisplayName,
         pickupPerson: chosenPerson,
         pickupPersonName: chosenPerson,
-        smsNotificationSent: true,
+        smsNotificationSent: false,
+        smsStatus: 'simulated',
         smsSentAt: now,
         smsRecipientPhone: targetPhone,
         updatedAt: now
@@ -232,7 +234,7 @@ export function CheckInOut({ user }: { user: User }) {
         time: timeFormatted
       });
 
-      toast.success(`Check-out recorded! SMS automatically sent to ${targetPhone}`, {
+      toast.success(`Check-out recorded! (SMS simulated for ${targetPhone})`, {
         duration: 5000,
         icon: '📱'
       });
@@ -593,14 +595,14 @@ export function CheckInOut({ user }: { user: User }) {
                 <button
                   onClick={handleCheckOut}
                   disabled={isSubmitting}
-                  className="w-full px-8 py-4 bg-[#d98466] hover:opacity-90 text-white font-bold rounded-2xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50 text-base shadow-sm"
+                  className="w-full px-8 py-4 bg-[#d98466] hover:opacity-90 text-white font-bold rounded-2xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50 text-base shadow-sm cursor-pointer"
                 >
                   <UserMinus size={20} />
-                  {isSubmitting ? 'Processing...' : 'Complete Check-Out & Send SMS'}
+                  {isSubmitting ? 'Processing...' : 'Complete Check-Out & Record Release'}
                 </button>
                 <div className="flex items-center gap-2 text-xs text-[#8c8a86] bg-[#f8f6f3] p-3 rounded-xl">
                   <ShieldCheck size={16} className="text-[#5c869e] shrink-0" />
-                  <span>Verified by staff member <strong>{user.name}</strong>. SMS will dispatch to chosen phone number upon checkout.</span>
+                  <span>Verified by staff member <strong>{user.name}</strong>. Attendance and release recorded.</span>
                 </div>
               </div>
             ) : (
@@ -626,15 +628,15 @@ export function CheckInOut({ user }: { user: User }) {
                 <div className="flex items-center justify-between text-xs text-[#5c869e] font-bold uppercase tracking-wider">
                   <span className="flex items-center gap-1.5">
                     <MessageSquare size={16} />
-                    SMS Notification Delivered
+                    SMS Notification Preview
                   </span>
-                  <span>Recipient: {lastSmsMessage.to}</span>
+                  <span className="text-[10px] bg-[#5c869e]/15 px-2 py-0.5 rounded-md text-[#3b596a] font-semibold">Demo Simulation</span>
                 </div>
                 <div className="p-3 bg-white rounded-xl border border-[#5c869e25] font-mono text-sm text-[#3c3c3b]">
                   &quot;{lastSmsMessage.text}&quot;
                 </div>
                 <p className="text-[11px] text-[#8c8a86]">
-                  Automated notification sent to parent/guardian contact on record.
+                  Simulated target: {lastSmsMessage.to}
                 </p>
               </div>
             )}

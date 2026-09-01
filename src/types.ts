@@ -69,6 +69,9 @@ export interface AttendanceRecord {
   pickupPerson?: string;
   pickupPersonName?: string;
   smsNotificationSent?: boolean;
+  smsStatus?: 'simulated' | 'queued' | 'sent' | 'delivered' | 'failed' | 'disabled';
+  smsProvider?: string;
+  smsError?: string;
   smsSentAt?: string;
   smsRecipientPhone?: string;
   notes?: string;

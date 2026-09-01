@@ -147,7 +147,8 @@ export function StudentDashboard({ user, onComplete }: StudentDashboardProps) {
         checkOutStaffName: authorizingStaff.name,
         pickupPerson: pickupPerson || student.parent?.name || 'Self',
         pickupPersonName: pickupPerson || student.parent?.name || 'Self',
-        smsNotificationSent: true,
+        smsNotificationSent: false,
+        smsStatus: 'simulated',
         smsSentAt: now,
         createdAt: todayRecord?.createdAt || now,
         updatedAt: now
@@ -157,7 +158,7 @@ export function StudentDashboard({ user, onComplete }: StudentDashboardProps) {
       setTodayRecord(updatedRecord);
       setStatus('checked-out');
       toast.success(
-        `Check-out approved! SMS automatically sent to ${student.parent?.phone || student.parentPhone || 'Parent'}`, 
+        `Check-out approved! (SMS notification simulated for ${student.parent?.phone || student.parentPhone || 'Parent'})`, 
         { duration: 4000, icon: '📱' }
       );
       triggerAutoReturn();
@@ -278,16 +279,17 @@ export function StudentDashboard({ user, onComplete }: StudentDashboardProps) {
         </div>
 
         {/* Check-Out SMS Dispatch Notification */}
-        {showCheckoutConfirmation && todayRecord?.smsNotificationSent && (
+        {showCheckoutConfirmation && (
           <div className="max-w-md mx-auto mb-6 p-4 bg-[#5c869e10] border border-[#5c869e30] rounded-2xl text-left animate-in fade-in">
-            <div className="flex items-center gap-2 text-xs font-bold text-[#5c869e] uppercase tracking-wider mb-1.5">
-              <span>📱 SMS Notification Dispatched</span>
+            <div className="flex items-center justify-between text-xs font-bold text-[#5c869e] uppercase tracking-wider mb-1.5">
+              <span>📱 SMS Notification</span>
+              <span className="text-[10px] bg-[#5c869e]/15 px-2 py-0.5 rounded-md text-[#3b596a] font-semibold">Demo Simulation</span>
             </div>
             <p className="text-xs text-[#4a4a48] font-mono bg-white/80 p-2.5 rounded-xl border border-[#5c869e20]">
-              "{student.name} was checked out from Kumon at {todayRecord.checkOutTime ? format(new Date(todayRecord.checkOutTime), 'h:mm a') : 'now'}."
+              "{student.name} was checked out from Kumon at {todayRecord?.checkOutTime ? format(new Date(todayRecord.checkOutTime), 'h:mm a') : 'now'}."
             </p>
             <p className="text-[11px] text-[#8c8a86] mt-1.5">
-              Sent to {student.parent?.name || student.parentName} ({student.parent?.phone || student.parentPhone})
+              Target: {student.parent?.name || student.parentName} ({student.parent?.phone || student.parentPhone})
             </p>
           </div>
         )}

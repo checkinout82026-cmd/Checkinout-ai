@@ -929,16 +929,16 @@ export function AdminAttendance() {
                       {pickupName ? (
                         <div>
                           <span className="font-medium text-[#4a4a48]">{pickupName}</span>
-                          {r.smsNotificationSent && (
+                          {(r.smsNotificationSent || r.smsStatus === 'simulated') && (
                             <span className="text-[10px] text-[#5c869e] font-semibold flex items-center gap-1 mt-0.5">
-                              <MessageSquare size={10} /> SMS Sent {r.smsRecipientPhone ? `to ${r.smsRecipientPhone}` : ''}
+                              <MessageSquare size={10} /> {r.smsNotificationSent ? 'SMS Sent' : 'SMS Simulated'} {r.smsRecipientPhone ? `(${r.smsRecipientPhone})` : ''}
                             </span>
                           )}
                         </div>
                       ) : (
-                        r.smsNotificationSent ? (
+                        (r.smsNotificationSent || r.smsStatus === 'simulated') ? (
                           <span className="text-[10px] text-[#5c869e] font-semibold flex items-center gap-1">
-                            <MessageSquare size={10} /> SMS Sent {r.smsRecipientPhone ? `to ${r.smsRecipientPhone}` : ''}
+                            <MessageSquare size={10} /> {r.smsNotificationSent ? 'SMS Sent' : 'SMS Simulated'} {r.smsRecipientPhone ? `(${r.smsRecipientPhone})` : ''}
                           </span>
                         ) : '-'
                       )}

@@ -15,8 +15,8 @@ This document records all security fixes, refactoring, and hardening changes app
 | **C6 / H3** | CRITICAL / HIGH | Require real verification in Staff Approval modal for student checkout | **RESOLVED** | 2026-09-01 |
 | **H5** | HIGH | Remove destructive auto-seeding logic and protect maintenance scripts | **RESOLVED** | 2026-09-01 |
 | **C3** | CRITICAL | Harden Firestore security rules with authenticated least-privilege policies | **RESOLVED** | 2026-09-01 |
-| **H4** | HIGH | Clarify simulated SMS notification status and state handling | In Progress | 2026-09-01 |
-| **H6 / M / L** | HIGH / MED / LOW | Kiosk session hardening, input sanitization, dependency and config cleanup | Pending | — |
+| **H4** | HIGH | Clarify simulated SMS notification status and state handling | **RESOLVED** | 2026-09-01 |
+| **H6 / M / L** | HIGH / MED / LOW | Kiosk session hardening, input sanitization, dependency and config cleanup | In Progress | 2026-09-01 |
 
 ---
 
@@ -153,6 +153,24 @@ This document records all security fixes, refactoring, and hardening changes app
 - **Verification & Testing:**
   - Verified rule syntax and conditions for all collections (`users`, `students`, `authorized_pickups`, `attendance`).
   - Ran `bun run lint` and `bun run build` to confirm integration.
+
+---
+
+### [H4] Simulated SMS Transparency and Delivery State Handling
+
+- **Issue Classification:** HIGH (H4: SMS notifications are simulated — parents get false assurance)
+- **Date:** 2026-09-01
+- **Status:** **RESOLVED**
+- **Vulnerabilities Addressed:**
+  1. Attendance records marked `smsNotificationSent: true` without an actual SMS provider, misleading operators and parents into believing SMS alerts were delivered externally.
+  2. UI toast and banners claimed messages were delivered.
+- **Changes Applied:**
+  - `src/types.ts`: Added SMS delivery lifecycle fields (`smsStatus: 'simulated' | 'queued' | 'sent' | 'delivered' | 'failed' | 'disabled'`, `smsProvider`, `smsError`).
+  - `src/components/StudentDashboard.tsx`, `src/components/CheckInOut.tsx`, `src/components/AdminAttendance.tsx`: Updated checkout workflows and UI banners to clearly flag SMS as "Demo Simulation" and record `smsStatus: 'simulated'`, avoiding false claims of external SMS dispatch.
+- **Verification & Testing:**
+  - Verified UI displays "Demo Simulation" badges and clear simulation notices.
+  - Ran `bun run lint` and `bun run build` with zero errors.
+
 
 
 
