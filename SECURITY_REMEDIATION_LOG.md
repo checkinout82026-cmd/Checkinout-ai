@@ -209,9 +209,12 @@ This document records all security fixes, refactoring, and hardening changes app
      - Required a minimum 2-character query length before exposing student suggestions in check-in search.
   7. **HTTP Security Headers & Meta Tags (`index.html`, `vite.config.ts`):**
      - Added `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Frame-Options: SAMEORIGIN`, and `Permissions-Policy`.
+  8. **Firebase Auth Provider Error Handling (`src/lib/auth.ts`, `Login.tsx`, `StaffApprovalModal.tsx`):**
+     - Handled `auth/operation-not-allowed` (`PASSWORD_LOGIN_DISABLED`) with explicit user instructions when the Email/Password sign-in provider is disabled in the Firebase Console.
 - **Verification & Testing:**
   - Added `src/vite-env.d.ts` for type safety.
   - Executed `bun run lint` and `bun run build` with zero errors.
+
 
 
 

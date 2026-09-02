@@ -114,6 +114,13 @@ export async function signInWithEmail(usernameOrEmail: string, password: string)
     console.warn('Firebase Auth error:', authError?.code);
 
     if (
+      authError.code === 'auth/operation-not-allowed' ||
+      authError?.message?.includes('PASSWORD_LOGIN_DISABLED')
+    ) {
+      throw new Error('Email/Password provider is disabled in Firebase Console. Please enable "Email/Password" under Authentication > Sign-in method.');
+    }
+
+    if (
       authError.code === 'auth/wrong-password' || 
       authError.code === 'auth/invalid-credential' ||
       authError.code === 'auth/user-not-found' ||

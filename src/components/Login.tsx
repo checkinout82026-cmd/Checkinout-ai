@@ -39,8 +39,14 @@ export function Login({ onLogin }: LoginProps) {
       let errorMsg = 'Invalid username or password';
       if (err?.code === 'auth/too-many-requests') {
         errorMsg = 'Too many attempts. Please wait a moment and try again.';
+      } else if (
+        err?.code === 'auth/operation-not-allowed' ||
+        err?.message?.includes('Firebase Console') ||
+        err?.message?.includes('PASSWORD_LOGIN_DISABLED')
+      ) {
+        errorMsg = err.message;
       }
-      toast.error(errorMsg);
+      toast.error(errorMsg, { duration: 6000 });
     } finally {
       setLoading(false);
     }

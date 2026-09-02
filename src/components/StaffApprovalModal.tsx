@@ -80,7 +80,11 @@ export function StaffApprovalModal({
       onApproved(staff);
     } catch (err: any) {
       console.warn('Staff authorization verification error:', err?.code);
-      setErrorMessage('Invalid staff password. Student release cannot be authorized without valid credentials.');
+      if (err?.code === 'auth/operation-not-allowed' || err?.message?.includes('PASSWORD_LOGIN_DISABLED')) {
+        setErrorMessage('Firebase error: Email/Password provider is disabled in Firebase Console. Please enable it under Authentication > Sign-in method.');
+      } else {
+        setErrorMessage('Invalid staff password. Student release cannot be authorized without valid credentials.');
+      }
     } finally {
       setIsVerifying(false);
     }
