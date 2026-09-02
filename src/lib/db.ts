@@ -152,13 +152,22 @@ export const db = {
   },
 
   deleteUser: async (id: string) => {
-    const current = db.getUsers().filter(u => u.id !== id);
-    cachedUsers = current;
-    localStorage.setItem(USERS_KEY, JSON.stringify(current));
+    const current = db.getUsers();
+    const target = current.find(u => u.id === id);
+    if (target && target.role === 'admin') {
+      const activeAdmins = current.filter(u => u.role === 'admin' && u.isActive !== false);
+      if (activeAdmins.length <= 1) {
+        throw new Error('Cannot delete the last remaining administrator account.');
+      }
+    }
+    const updated = current.filter(u => u.id !== id);
+    cachedUsers = updated;
+    localStorage.setItem(USERS_KEY, JSON.stringify(updated));
     try {
       await deleteDoc(doc(firestore, 'users', id));
     } catch (err) {
       console.warn('Firestore deleteUser error:', err);
+      throw err;
     }
   },
 

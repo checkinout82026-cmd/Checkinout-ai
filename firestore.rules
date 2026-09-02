@@ -37,7 +37,7 @@ service cloud.firestore {
         isAdmin() || 
         (request.auth.uid == userId && request.resource.data.role == resource.data.role)
       ) && !('password' in request.resource.data);
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() && request.auth.uid != userId;
     }
     
     // Students Collection - staff and admin access only

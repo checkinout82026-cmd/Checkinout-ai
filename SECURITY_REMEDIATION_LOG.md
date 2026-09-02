@@ -18,6 +18,7 @@ This document records all security fixes, refactoring, and hardening changes app
 | **H4** | HIGH | Clarify simulated SMS notification status and state handling | **RESOLVED** | 2026-09-02 |
 | **H6 / M / L** | HIGH / MED / LOW | Kiosk session hardening, input sanitization, dependency and config cleanup | **RESOLVED** | 2026-09-02 |
 | **SEC-DEEP** | HIGH / MED / LOW | Firestore privilege escalation fix, CSV injection defense, username enumeration mitigation, CSP/headers, and auto-lock | **RESOLVED** | 2026-09-02 |
+| **SEC-LOCKOUT** | CRITICAL | Prevent admin self-deletion and sole-administrator lockout | **RESOLVED** | 2026-09-02 |
 
 ---
 
@@ -214,6 +215,34 @@ This document records all security fixes, refactoring, and hardening changes app
 - **Verification & Testing:**
   - Added `src/vite-env.d.ts` for type safety.
   - Executed `bun run lint` and `bun run build` with zero errors.
+
+---
+
+### [SEC-LOCKOUT] Prevent Admin Self-Deletion and Sole-Administrator Lockout
+
+- **Issue Classification:** CRITICAL (Admin self-deletion, permanent administrative lockout risk)
+- **Date:** 2026-09-02
+- **Status:** **RESOLVED**
+- **Vulnerabilities Addressed:**
+  1. An administrator viewing the Staff & Admin management view could click the delete button next to their own account, deleting themselves.
+  2. If the last administrator was deleted or demoted to staff, the system would become permanently orphaned with zero administrators.
+  3. Firestore security rules did not restrict an admin from deleting their own user document.
+- **Changes Applied:**
+  - `firestore.rules`: Updated user deletion rule to enforce `allow delete: if isAdmin() && request.auth.uid != userId;`, rejecting self-deletion at the database security level.
+  - `src/lib/db.ts`: In `db.deleteUser(id)`, added a validation guard preventing the deletion of the sole remaining active administrator.
+  - `src/components/AdminStaff.tsx`:
+    - Accepted `currentUser` prop (with fallback to active session).
+    - Added `isUserSelf` check to dynamically identify the active administrator across UID, username, and email.
+    - Replaced the delete icon with a "You" badge on the active administrator's row.
+    - Replaced the delete icon with a "Sole Admin" badge if only one administrator remains in the system.
+    - Added programmatic guards in `deleteStaff` blocking self-deletion and last-admin deletion with clear error alerts.
+    - In edit modal, blocked self-demotion to staff if no other active administrator exists.
+  - `src/App.tsx`: Passed `currentUser={user}` into `<AdminStaff />`.
+- **Verification & Testing:**
+  - Verified UI displays "You" badge and suppresses delete button for the current admin.
+  - Verified delete prevention for the sole administrator account.
+  - Ran `bun run lint` and `bun run build` with zero errors.
+
 
 
 

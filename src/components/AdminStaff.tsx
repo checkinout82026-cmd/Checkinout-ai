@@ -6,11 +6,36 @@ import { formatPhoneNumber } from '../lib/utils';
 import toast from 'react-hot-toast';
 import { UserPlus, KeyRound, Shield, Trash2, Mail, Loader2, CheckCircle2, Edit3, User as UserIcon, Lock, Phone, Info, X, Eye, EyeOff } from 'lucide-react';
 
-export function AdminStaff() {
+interface AdminStaffProps {
+  currentUser?: User | null;
+}
+
+export function AdminStaff({ currentUser }: AdminStaffProps) {
   const [staffList, setStaffList] = useState<User[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Determine current active user (from props or cached session)
+  const effectiveUser = currentUser || (() => {
+    try {
+      const stored = localStorage.getItem('activeUser');
+      return stored ? JSON.parse(stored) as User : null;
+    } catch {
+      return null;
+    }
+  })();
+
+  const isUserSelf = (target: User) => {
+    if (!effectiveUser) return false;
+    return (
+      target.id === effectiveUser.id ||
+      (!!effectiveUser.username && target.username?.toLowerCase() === effectiveUser.username.toLowerCase()) ||
+      (!!effectiveUser.email && target.email?.toLowerCase() === effectiveUser.email.toLowerCase())
+    );
+  };
+
+  const activeAdminCount = staffList.filter(u => u.role === 'admin' && u.isActive !== false).length;
 
   // Form state for creating user
   const [name, setName] = useState('');
@@ -127,6 +152,11 @@ export function AdminStaff() {
       return;
     }
 
+    if (isUserSelf(editingUser) && editRole !== 'admin' && activeAdminCount <= 1) {
+      toast.error('You cannot demote yourself. The system must have at least one active administrator.');
+      return;
+    }
+
     setLoading(true);
     try {
       const updatedUser: User = {
@@ -166,9 +196,24 @@ export function AdminStaff() {
   };
 
   const deleteStaff = async (id: string, userName: string) => {
-    if (confirm(`Are you sure you want to remove ${userName}?`)) {
-      await db.deleteUser(id);
-      toast.success('Account removed from database');
+    const target = staffList.find(u => u.id === id);
+    if (target && isUserSelf(target)) {
+      toast.error('Security alert: You cannot delete your own active administrator account.');
+      return;
+    }
+
+    if (target?.role === 'admin' && activeAdminCount <= 1) {
+      toast.error('Action blocked: Cannot delete the last remaining administrator. The system must have at least one active administrator.');
+      return;
+    }
+
+    if (confirm(`Are you sure you want to remove ${userName}? This action cannot be undone.`)) {
+      try {
+        await db.deleteUser(id);
+        toast.success(`Account for ${userName} removed from database`);
+      } catch (err: any) {
+        toast.error(err?.message || 'Failed to remove account');
+      }
     }
   };
 
@@ -531,7 +576,21 @@ export function AdminStaff() {
                         <Edit3 size={13} />
                         Edit Account
                       </button>
-                      {s.id !== 'admin_keshav' && s.id !== 'admin_smith' && (
+                      {isUserSelf(s) ? (
+                        <span 
+                          title="You cannot delete your own active administrator account"
+                          className="px-2.5 py-1 text-[11px] font-bold bg-[#edeae6] text-[#8c8a86] rounded-xl select-none"
+                        >
+                          You
+                        </span>
+                      ) : s.role === 'admin' && activeAdminCount <= 1 ? (
+                        <span 
+                          title="Cannot delete the sole remaining administrator"
+                          className="px-2.5 py-1 text-[11px] font-bold bg-[#edeae6] text-[#8c8a86] rounded-xl select-none"
+                        >
+                          Sole Admin
+                        </span>
+                      ) : (
                         <button 
                           onClick={() => deleteStaff(s.id, s.name)} 
                           title="Remove Account"
