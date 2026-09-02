@@ -12,11 +12,11 @@ This document records all security fixes, refactoring, and hardening changes app
 | **C4** | CRITICAL | Purge real minor/family PII from repository and provide synthetic seed data | **RESOLVED** | 2026-09-01 |
 | **C5** | CRITICAL | Eliminate plaintext password storage in Firestore and client `localStorage` | **RESOLVED** | 2026-09-01 |
 | **H1 / H2** | HIGH | Enforce strict Firebase Auth and secure role assignment | **RESOLVED** | 2026-09-01 |
-| **C6 / H3** | CRITICAL / HIGH | Require real verification in Staff Approval modal for student checkout | **RESOLVED** | 2026-09-01 |
-| **H5** | HIGH | Remove destructive auto-seeding logic and protect maintenance scripts | **RESOLVED** | 2026-09-01 |
-| **C3** | CRITICAL | Harden Firestore security rules with authenticated least-privilege policies | **RESOLVED** | 2026-09-01 |
-| **H4** | HIGH | Clarify simulated SMS notification status and state handling | **RESOLVED** | 2026-09-01 |
-| **H6 / M / L** | HIGH / MED / LOW | Kiosk session hardening, input sanitization, dependency and config cleanup | **RESOLVED** | 2026-09-01 |
+| **C6 / H3** | CRITICAL / HIGH | Require real verification in Staff Approval modal for student checkout | **RESOLVED** | 2026-09-02 |
+| **H5** | HIGH | Remove destructive auto-seeding logic and protect maintenance scripts | **RESOLVED** | 2026-09-02 |
+| **C3** | CRITICAL | Harden Firestore security rules with authenticated least-privilege policies | **RESOLVED** | 2026-09-02 |
+| **H4** | HIGH | Clarify simulated SMS notification status and state handling | **RESOLVED** | 2026-09-02 |
+| **H6 / M / L** | HIGH / MED / LOW | Kiosk session hardening, input sanitization, dependency and config cleanup | **RESOLVED** | 2026-09-02 |
 | **SEC-DEEP** | HIGH / MED / LOW | Firestore privilege escalation fix, CSV injection defense, username enumeration mitigation, CSP/headers, and auto-lock | **RESOLVED** | 2026-09-02 |
 
 ---
@@ -26,7 +26,6 @@ This document records all security fixes, refactoring, and hardening changes app
 ### [C1 / C2] Remove Hardcoded Credentials and Universal Password Backdoors
 
 - **Issue Classification:** CRITICAL (C1: Hardcoded credentials in repo, C2: Universal backdoor password)
-- **Date:** 2026-09-01
 - **Status:** **RESOLVED**
 - **Vulnerabilities Addressed:**
   1. Plaintext admin password `Giridharan#20` and staff password `Password123!` hardcoded in `src/lib/db.ts` and `src/lib/auth.ts`.
@@ -47,7 +46,6 @@ This document records all security fixes, refactoring, and hardening changes app
 ### [C4] Purge Real Student/Family PII and Provide Synthetic Seed Data
 
 - **Issue Classification:** CRITICAL (C4: Real PII of minors committed to source control)
-- **Date:** 2026-09-01
 - **Status:** **RESOLVED**
 - **Vulnerabilities Addressed:**
   1. `actual_students.csv` contained 103 real children names, student IDs, parent phone numbers, and family contact records.
@@ -65,7 +63,6 @@ This document records all security fixes, refactoring, and hardening changes app
 ### [C5] Eliminate Plaintext Password Storage in Firestore and LocalStorage
 
 - **Issue Classification:** CRITICAL (C5: Plaintext passwords stored and synced everywhere)
-- **Date:** 2026-09-01
 - **Status:** **RESOLVED**
 - **Vulnerabilities Addressed:**
   1. Plaintext passwords were written to Firestore `users` documents in `saveUsers` and `saveUser`.
@@ -87,7 +84,6 @@ This document records all security fixes, refactoring, and hardening changes app
 ### [H1 / H2] Enforce Strict Firebase Auth and Secure Role Assignment
 
 - **Issue Classification:** HIGH (H1: Authentication succeeds even when Firebase Auth fails, H2: Insecure email string role assignment)
-- **Date:** 2026-09-01
 - **Status:** **RESOLVED**
 - **Vulnerabilities Addressed:**
   1. Login swallowed Firebase Auth errors and returned local matches regardless of whether credentials were valid.
@@ -106,7 +102,6 @@ This document records all security fixes, refactoring, and hardening changes app
 ### [C6 / H3] Require Real Verification in Staff Approval Modal for Student Checkout
 
 - **Issue Classification:** CRITICAL / HIGH (C6: Staff approval required no verification, H3: Impersonation and unverified checkout)
-- **Date:** 2026-09-01
 - **Status:** **RESOLVED**
 - **Vulnerabilities Addressed:**
   1. Releasing a child from campus only required selecting a staff member's name from a dropdown with zero credential or PIN verification.
@@ -125,7 +120,6 @@ This document records all security fixes, refactoring, and hardening changes app
 ### [H5] Remove Destructive Auto-Seeding and Protect Maintenance Scripts
 
 - **Issue Classification:** HIGH (H5: Destructive auto-seeding and unguarded maintenance scripts)
-- **Date:** 2026-09-01
 - **Status:** **RESOLVED**
 - **Vulnerabilities Addressed:**
   1. `db.init()` wiped and deleted all student documents whenever document count was <= 10 or matched legacy dummy names.
@@ -142,7 +136,6 @@ This document records all security fixes, refactoring, and hardening changes app
 ### [C3] Lockdown Firestore Security Rules
 
 - **Issue Classification:** CRITICAL (C3: Firestore database open to the world)
-- **Date:** 2026-09-01
 - **Status:** **RESOLVED**
 - **Vulnerabilities Addressed:**
   1. `firestore.rules` previously contained `allow read, write: if true;` across all collections.
@@ -160,7 +153,6 @@ This document records all security fixes, refactoring, and hardening changes app
 ### [H4] Simulated SMS Transparency and Delivery State Handling
 
 - **Issue Classification:** HIGH (H4: SMS notifications are simulated — parents get false assurance)
-- **Date:** 2026-09-01
 - **Status:** **RESOLVED**
 - **Vulnerabilities Addressed:**
   1. Attendance records marked `smsNotificationSent: true` without an actual SMS provider, misleading operators and parents into believing SMS alerts were delivered externally.
@@ -177,7 +169,6 @@ This document records all security fixes, refactoring, and hardening changes app
 ### [H6 / M / L] Kiosk Session Hardening, Input Sanitization & Dependency Cleanup
 
 - **Issue Classification:** HIGH / MEDIUM / LOW (H6: Session & PII persistence on shared kiosks, M3: Unused dependencies, M5: Input parsing)
-- **Date:** 2026-09-01
 - **Status:** **RESOLVED**
 - **Vulnerabilities Addressed:**
   1. On shared kiosks, logging out left full student and attendance records cached in browser `localStorage`.
@@ -199,7 +190,6 @@ This document records all security fixes, refactoring, and hardening changes app
 ### [SEC-DEEP] Deep Security Audit & Hardening (Phase 2)
 
 - **Issue Classification:** HIGH / MEDIUM / LOW (Privilege Escalation, CSV Injection CWE-1236, Account Enumeration, Missing Headers)
-- **Date:** 2026-09-02
 - **Status:** **RESOLVED**
 - **Vulnerabilities Addressed & Remediations Applied:**
   1. **Firestore Self-Privilege Escalation Prevention (`firestore.rules`):**
