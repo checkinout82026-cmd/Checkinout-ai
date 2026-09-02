@@ -152,15 +152,15 @@ export const db = {
   },
 
   deleteUser: async (id: string) => {
-    const current = db.getUsers();
-    const target = current.find(u => u.id === id);
+    const allUsers = db.getUsers();
+    const target = allUsers.find(u => u.id === id);
     if (target && target.role === 'admin') {
-      const activeAdmins = current.filter(u => u.role === 'admin' && u.isActive !== false);
+      const activeAdmins = allUsers.filter(u => u.role === 'admin' && u.isActive !== false);
       if (activeAdmins.length <= 1) {
         throw new Error('Cannot delete the last remaining administrator account.');
       }
     }
-    const updated = current.filter(u => u.id !== id);
+    const updated = allUsers.filter(u => u.id !== id);
     cachedUsers = updated;
     localStorage.setItem(USERS_KEY, JSON.stringify(updated));
     try {
