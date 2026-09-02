@@ -24,3 +24,17 @@ export function formatPhoneNumber(input: string): string {
   }
   return `(${digits.slice(0, 3)}) - ${digits.slice(3, 6)}- ${digits.slice(6, 10)}`;
 }
+
+/**
+ * Sanitizes CSV cell values to prevent CSV Formula Injection (CWE-1236)
+ */
+export function sanitizeCsvCell(val: unknown): string {
+  if (val === null || val === undefined) return '""';
+  let str = String(val);
+  // Neutralize formula trigger characters (=, +, -, @, tab, carriage return)
+  if (/^[=+\-@\t\r]/.test(str)) {
+    str = `'${str}`;
+  }
+  return `"${str.replace(/"/g, '""')}"`;
+}
+

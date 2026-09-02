@@ -3,14 +3,15 @@ import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import config from '../../firebase-applet-config.json';
 
+// Allow environment variables to override committed config for production deployments
 const firebaseConfig = {
-  apiKey: config.apiKey,
-  authDomain: config.authDomain,
-  projectId: config.projectId,
-  storageBucket: config.storageBucket,
-  messagingSenderId: config.messagingSenderId,
-  appId: config.appId,
-  measurementId: config.measurementId || undefined
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || config.apiKey,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || config.authDomain,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || config.projectId,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || config.storageBucket,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || config.messagingSenderId,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || config.appId,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || config.measurementId || undefined
 };
 
 // Initialize Firebase App
@@ -20,6 +21,8 @@ export const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfi
 export const auth = getAuth(app);
 
 // Initialize Firestore with specific database ID if provided
-export const firestore = config.firestoreDatabaseId && config.firestoreDatabaseId !== '(default)'
-  ? getFirestore(app, config.firestoreDatabaseId)
+const firestoreDatabaseId = import.meta.env.VITE_FIRESTORE_DATABASE_ID || config.firestoreDatabaseId;
+
+export const firestore = firestoreDatabaseId && firestoreDatabaseId !== '(default)'
+  ? getFirestore(app, firestoreDatabaseId)
   : getFirestore(app);

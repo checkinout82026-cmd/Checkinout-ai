@@ -35,11 +35,11 @@ export function Login({ onLogin }: LoginProps) {
       toast.success(`Welcome, ${user.name}! Opening ${targetMode === 'kiosk' ? 'Check-In Kiosk' : 'Management Dashboard'}`);
       onLogin(user, targetMode);
     } catch (err: any) {
-      console.error('Sign in notice:', err);
-      let errorMsg = err?.message || 'Invalid username or password';
-      if (err.code === 'auth/wrong-password') errorMsg = 'Incorrect password';
-      if (err.code === 'auth/user-not-found') errorMsg = 'No account found with this username';
-      if (err.code === 'auth/too-many-requests') errorMsg = 'Too many attempts. Please try again in a moment';
+      console.warn('Sign in attempt failed:', err?.code || err);
+      let errorMsg = 'Invalid username or password';
+      if (err?.code === 'auth/too-many-requests') {
+        errorMsg = 'Too many attempts. Please wait a moment and try again.';
+      }
       toast.error(errorMsg);
     } finally {
       setLoading(false);

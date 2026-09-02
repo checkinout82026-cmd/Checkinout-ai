@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../lib/db';
 import { AttendanceRecord, Student, User } from '../types';
 import { parseAttendanceCSV } from '../lib/csvParser';
+import { sanitizeCsvCell } from '../lib/utils';
 import { format, subDays, startOfMonth } from 'date-fns';
 import toast from 'react-hot-toast';
 import { 
@@ -537,17 +538,15 @@ export function AdminAttendance() {
       const outStaff = r.checkOutStaffName || findUserName(r.checkOutStaffId) || '';
       const pickup = r.pickupPerson || r.pickupPersonName || '';
 
-      const clean = (val: string) => `"${(val || '').replace(/"/g, '""')}"`;
-
       return [
-        r.date,
-        clean(r.studentId),
-        clean(sName),
-        clean(inTime),
-        clean(inStaff),
-        clean(outTime),
-        clean(outStaff),
-        clean(pickup)
+        sanitizeCsvCell(r.date),
+        sanitizeCsvCell(r.studentId),
+        sanitizeCsvCell(sName),
+        sanitizeCsvCell(inTime),
+        sanitizeCsvCell(inStaff),
+        sanitizeCsvCell(outTime),
+        sanitizeCsvCell(outStaff),
+        sanitizeCsvCell(pickup)
       ].join(',');
     });
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows].join('\n');

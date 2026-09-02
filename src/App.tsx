@@ -61,10 +61,13 @@ export default function App() {
     }
 
     // Subscribe to Firebase Auth state
-    const unsubscribeAuth = subscribeToAuthState((appUser) => {
-      if (appUser) {
+    const unsubscribeAuth = subscribeToAuthState((appUser, fbUser) => {
+      if (appUser && fbUser) {
         setUser(appUser);
         localStorage.setItem('activeUser', JSON.stringify(appUser));
+      } else {
+        setUser(null);
+        localStorage.removeItem('activeUser');
       }
     });
 
@@ -72,6 +75,30 @@ export default function App() {
       if (typeof unsubscribeAuth === 'function') unsubscribeAuth();
     };
   }, []);
+
+  // Inactivity timeout for kiosk and shared terminals (15 minutes of inactivity)
+  useEffect(() => {
+    if (!user) return;
+
+    const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000;
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    const resetInactivityTimer = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        handleLogout();
+      }, INACTIVITY_TIMEOUT_MS);
+    };
+
+    const activityEvents = ['mousedown', 'keydown', 'touchstart', 'scroll'];
+    activityEvents.forEach(evt => window.addEventListener(evt, resetInactivityTimer, { passive: true }));
+    resetInactivityTimer();
+
+    return () => {
+      clearTimeout(timeoutId);
+      activityEvents.forEach(evt => window.removeEventListener(evt, resetInactivityTimer));
+    };
+  }, [user]);
 
   const handleLogin = (loggedInUser: User, mode: 'kiosk' | 'dashboard') => {
     setUser(loggedInUser);

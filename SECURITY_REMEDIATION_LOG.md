@@ -17,6 +17,7 @@ This document records all security fixes, refactoring, and hardening changes app
 | **C3** | CRITICAL | Harden Firestore security rules with authenticated least-privilege policies | **RESOLVED** | 2026-09-01 |
 | **H4** | HIGH | Clarify simulated SMS notification status and state handling | **RESOLVED** | 2026-09-01 |
 | **H6 / M / L** | HIGH / MED / LOW | Kiosk session hardening, input sanitization, dependency and config cleanup | **RESOLVED** | 2026-09-01 |
+| **SEC-DEEP** | HIGH / MED / LOW | Firestore privilege escalation fix, CSV injection defense, username enumeration mitigation, CSP/headers, and auto-lock | **RESOLVED** | 2026-09-02 |
 
 ---
 
@@ -192,6 +193,36 @@ This document records all security fixes, refactoring, and hardening changes app
   - Pruned unused dependencies and updated `bun.lock` (7 packages safely removed).
   - Executed `bun run lint` and `bun run build` with zero errors.
   - Verified bundle size and cleanliness.
+
+---
+
+### [SEC-DEEP] Deep Security Audit & Hardening (Phase 2)
+
+- **Issue Classification:** HIGH / MEDIUM / LOW (Privilege Escalation, CSV Injection CWE-1236, Account Enumeration, Missing Headers)
+- **Date:** 2026-09-02
+- **Status:** **RESOLVED**
+- **Vulnerabilities Addressed & Remediations Applied:**
+  1. **Firestore Self-Privilege Escalation Prevention (`firestore.rules`):**
+     - Previously, authenticated users updating their own user record could theoretically modify their `role` field to `'admin'`.
+     - Added rule restriction ensuring non-admin users cannot alter their existing `role` field during updates (`request.resource.data.role == resource.data.role`).
+  2. **CSV Formula Injection Mitigation (`src/lib/utils.ts`, `AdminStudents.tsx`, `AdminAttendance.tsx`):**
+     - Implemented `sanitizeCsvCell` following OWASP CWE-1236 guidelines. Prepend `'` to fields starting with formula trigger symbols (`=`, `+`, `-`, `@`, `\t`, `\r`) to prevent malicious formula execution in Excel/Google Sheets.
+  3. **Username Enumeration Mitigation (`src/components/Login.tsx`, `src/lib/auth.ts`):**
+     - Unified authentication failure errors into a generic "Invalid username or password" message, preventing attackers from probing for registered usernames.
+     - Removed insecure default email guessing (`@school.org`) in password reset workflow.
+  4. **Dynamic Configuration Injection (`src/lib/firebase.ts`):**
+     - Allowed `import.meta.env` environment variables (`VITE_FIREBASE_API_KEY`, etc.) to take precedence over committed JSON configurations for production deployments.
+  5. **Session Authorization Integrity & Inactivity Auto-Lock (`src/App.tsx`):**
+     - Synchronized client state with Firebase Auth: if Firebase Auth reports an unauthenticated state, untrusted local storage session is immediately invalidated.
+     - Added a 15-minute inactivity auto-lock on shared kiosk/terminal displays to protect unattended sessions.
+  6. **Autocomplete Data Exposure Protection (`src/components/CheckInOut.tsx`):**
+     - Required a minimum 2-character query length before exposing student suggestions in check-in search.
+  7. **HTTP Security Headers & Meta Tags (`index.html`, `vite.config.ts`):**
+     - Added `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Frame-Options: SAMEORIGIN`, and `Permissions-Policy`.
+- **Verification & Testing:**
+  - Added `src/vite-env.d.ts` for type safety.
+  - Executed `bun run lint` and `bun run build` with zero errors.
+
 
 
 

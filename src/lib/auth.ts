@@ -200,7 +200,7 @@ export async function sendPasswordReset(email: string): Promise<void> {
     if (match && match.email) {
       targetEmail = match.email;
     } else {
-      targetEmail = `${targetEmail.toLowerCase()}@school.org`;
+      throw new Error('Please provide a valid registered email address.');
     }
   }
   await sendPasswordResetEmail(auth, targetEmail);

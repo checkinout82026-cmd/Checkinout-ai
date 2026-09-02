@@ -48,9 +48,9 @@ export function CheckInOut({ user }: { user: User }) {
     }
   }, [records, activeStudent]);
 
-  // Live filter suggestions based on typed input
+  // Live filter suggestions based on typed input (require at least 2 characters to limit exposure)
   const query = studentId.trim().toLowerCase();
-  const suggestions = query
+  const suggestions = query.length >= 2
     ? students
         .filter(s => 
           s.name.toLowerCase().includes(query) ||

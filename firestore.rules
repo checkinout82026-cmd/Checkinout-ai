@@ -26,12 +26,17 @@ service cloud.firestore {
       );
     }
 
-    // Users Collection - strict access and never allow storing passwords
+    // Users Collection - strict access, no self-privilege-escalation, and never allow storing passwords
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated() && 
-        (isAdmin() || request.auth.uid == userId) &&
-        !('password' in request.resource.data);
+      allow create: if isAuthenticated() && (
+        isAdmin() || 
+        (request.auth.uid == userId && request.resource.data.role == 'staff')
+      ) && !('password' in request.resource.data);
+      allow update: if isAuthenticated() && (
+        isAdmin() || 
+        (request.auth.uid == userId && request.resource.data.role == resource.data.role)
+      ) && !('password' in request.resource.data);
       allow delete: if isAdmin();
     }
     

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../lib/db';
 import { Student } from '../types';
 import { parseStudentCSV } from '../lib/csvParser';
-import { formatPhoneNumber } from '../lib/utils';
+import { formatPhoneNumber, sanitizeCsvCell } from '../lib/utils';
 import toast from 'react-hot-toast';
 import { Sparkles, Hash, Search, Upload, Download, FileText, X, Check, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
@@ -119,17 +119,16 @@ export function AdminStudents() {
     }
     const headers = ['Student ID', 'Student Name', 'Grade Level', 'Parent Name', 'Primary Phone', 'Secondary Phone', 'Parent Email', 'Authorized Pickups', 'Notes'];
     const rows = students.map(s => {
-      const clean = (val: string) => `"${(val || '').replace(/"/g, '""')}"`;
       return [
-        clean(s.id),
-        clean(s.name),
-        clean(s.gradeLevel || ''),
-        clean(s.parent?.name || s.parentName || ''),
-        clean(s.parent?.phone || s.parentPhone || ''),
-        clean(s.parent?.phone2 || s.parentPhone2 || ''),
-        clean(s.parent?.email || s.parentEmail || ''),
-        clean((s.authorizedPickups || []).join('; ')),
-        clean(s.notes || '')
+        sanitizeCsvCell(s.id),
+        sanitizeCsvCell(s.name),
+        sanitizeCsvCell(s.gradeLevel || ''),
+        sanitizeCsvCell(s.parent?.name || s.parentName || ''),
+        sanitizeCsvCell(s.parent?.phone || s.parentPhone || ''),
+        sanitizeCsvCell(s.parent?.phone2 || s.parentPhone2 || ''),
+        sanitizeCsvCell(s.parent?.email || s.parentEmail || ''),
+        sanitizeCsvCell((s.authorizedPickups || []).join('; ')),
+        sanitizeCsvCell(s.notes || '')
       ].join(',');
     });
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows].join('\n');
