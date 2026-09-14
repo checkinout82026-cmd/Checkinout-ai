@@ -1,10 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../lib/db';
-import { registerStaffOrAdmin, sendPasswordReset } from '../lib/auth';
+import { registerStaffOrAdmin, CONFIGURED_ACCOUNTS } from '../lib/auth';
 import { User, Role } from '../types';
-import { formatPhoneNumber } from '../lib/utils';
 import toast from 'react-hot-toast';
-import { UserPlus, KeyRound, Shield, Trash2, Mail, Loader2, CheckCircle2, Edit3, User as UserIcon, Lock, Phone, Info, X, Eye, EyeOff } from 'lucide-react';
+import { 
+  UserPlus, 
+  Shield, 
+  Trash2, 
+  Loader2, 
+  CheckCircle2, 
+  Edit3, 
+  User as UserIcon, 
+  Lock, 
+  Info, 
+  X, 
+  Eye, 
+  EyeOff
+} from 'lucide-react';
 
 interface AdminStaffProps {
   currentUser?: User | null;
@@ -15,6 +27,10 @@ export function AdminStaff({ currentUser }: AdminStaffProps) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Deletion Confirmation Modal State
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [isDeletingUser, setIsDeletingUser] = useState(false);
 
   // Determine current active user (from props or cached session)
   const effectiveUser = currentUser || (() => {
@@ -37,20 +53,16 @@ export function AdminStaff({ currentUser }: AdminStaffProps) {
 
   const activeAdminCount = staffList.filter(u => u.role === 'admin' && u.isActive !== false).length;
 
-  // Form state for creating user
+  // Form state for creating user (no phone, no email)
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
   const [role, setRole] = useState<Role>('staff');
 
-  // Form state for editing user
+  // Form state for editing user (no phone, no email)
   const [editName, setEditName] = useState('');
   const [editUsername, setEditUsername] = useState('');
-  const [editEmail, setEditEmail] = useState('');
-  const [editPhone, setEditPhone] = useState('');
   const [editRole, setEditRole] = useState<Role>('staff');
 
   useEffect(() => {
@@ -64,56 +76,54 @@ export function AdminStaff({ currentUser }: AdminStaffProps) {
 
   const handleAddStaff = async (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanUsername = username.trim().toLowerCase();
+    const cleanUsername = username.trim();
     if (!cleanUsername) {
       toast.error('Please specify a username');
       return;
     }
 
-    if (staffList.find(u => u.username.toLowerCase() === cleanUsername)) {
+    if (staffList.find(u => u.username.toLowerCase() === cleanUsername.toLowerCase())) {
       toast.error('Username already taken. Please choose another username.');
       return;
     }
 
-    const cleanEmail = email.trim() || `${cleanUsername}@school.org`;
     const cleanPassword = password.trim();
     if (!cleanPassword || cleanPassword.length < 6) {
       toast.error('Password must be at least 6 characters');
       return;
     }
 
+    const generatedEmail = `${cleanUsername.toLowerCase()}@school.org`;
+
     setLoading(true);
     try {
       // Create user in Firebase Auth & Firestore
       await registerStaffOrAdmin(
-        cleanEmail,
+        generatedEmail,
         cleanPassword,
-        name.trim(),
+        name.trim() || cleanUsername,
         role,
-        phone.trim(),
+        '', // No phone
         cleanUsername
       );
       toast.success(`${role === 'admin' ? 'Administrator' : 'Staff member'} created with username "${cleanUsername}"!`);
       
-      // Reset
+      // Reset form
       setName('');
       setUsername('');
       setPassword('');
-      setEmail('');
-      setPhone('');
       setRole('staff');
       setShowAddForm(false);
     } catch (err: any) {
       console.warn('Firebase Auth user creation notice:', err);
-      // Fallback to Firestore saving directly without plaintext password
       const newUser: User = {
         id: 'u_' + crypto.randomUUID().slice(0, 8),
         username: cleanUsername,
-        name: name.trim(),
-        fullName: name.trim(),
+        name: name.trim() || cleanUsername,
+        fullName: name.trim() || cleanUsername,
         role,
-        email: cleanEmail,
-        phone: phone.trim() || '',
+        email: generatedEmail,
+        phone: '',
         isActive: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -130,8 +140,6 @@ export function AdminStaff({ currentUser }: AdminStaffProps) {
     setEditingUser(user);
     setEditName(user.name || user.fullName || '');
     setEditUsername(user.username || '');
-    setEditEmail(user.email || '');
-    setEditPhone(user.phone || '');
     setEditRole(user.role || 'staff');
   };
 
@@ -139,14 +147,16 @@ export function AdminStaff({ currentUser }: AdminStaffProps) {
     e.preventDefault();
     if (!editingUser) return;
 
-    const cleanUsername = editUsername.trim().toLowerCase();
+    const cleanUsername = editUsername.trim();
     if (!cleanUsername) {
       toast.error('Username cannot be empty');
       return;
     }
 
     // Check if username is taken by another user
-    const existing = staffList.find(u => u.id !== editingUser.id && u.username.toLowerCase() === cleanUsername);
+    const existing = staffList.find(
+      u => u.id !== editingUser.id && u.username.toLowerCase() === cleanUsername.toLowerCase()
+    );
     if (existing) {
       toast.error(`Username "${cleanUsername}" is already taken by another account`);
       return;
@@ -162,16 +172,16 @@ export function AdminStaff({ currentUser }: AdminStaffProps) {
       const updatedUser: User = {
         ...editingUser,
         username: cleanUsername,
-        name: editName.trim(),
-        fullName: editName.trim(),
-        email: editEmail.trim() || `${cleanUsername}@school.org`,
-        phone: editPhone.trim(),
+        name: editName.trim() || cleanUsername,
+        fullName: editName.trim() || cleanUsername,
+        email: editingUser.email || `${cleanUsername.toLowerCase()}@school.org`,
+        phone: '',
         role: editRole,
         updatedAt: new Date().toISOString()
       };
 
       await db.saveUser(updatedUser);
-      toast.success(`Account updated! New username is "${cleanUsername}"`);
+      toast.success(`Account updated! Username is "${cleanUsername}"`);
       setEditingUser(null);
     } catch (err) {
       console.error('Error saving user update:', err);
@@ -181,23 +191,8 @@ export function AdminStaff({ currentUser }: AdminStaffProps) {
     }
   };
 
-  const handleSendReset = async (userEmail: string, userName: string) => {
-    if (!userEmail) {
-      toast.error('No email specified for this user');
-      return;
-    }
-    try {
-      await sendPasswordReset(userEmail);
-      toast.success(`Password reset email sent to ${userName} (${userEmail})`);
-    } catch (err: any) {
-      console.error('Reset password error:', err);
-      toast.error('Could not send password reset email');
-    }
-  };
-
-  const deleteStaff = async (id: string, userName: string) => {
-    const target = staffList.find(u => u.id === id);
-    if (target && isUserSelf(target)) {
+  const initiateDeleteStaff = (target: User) => {
+    if (isUserSelf(target)) {
       toast.error('Security alert: You cannot delete your own active administrator account.');
       return;
     }
@@ -207,13 +202,21 @@ export function AdminStaff({ currentUser }: AdminStaffProps) {
       return;
     }
 
-    if (confirm(`Are you sure you want to remove ${userName}? This action cannot be undone.`)) {
-      try {
-        await db.deleteUser(id);
-        toast.success(`Account for ${userName} removed from database`);
-      } catch (err: any) {
-        toast.error(err?.message || 'Failed to remove account');
-      }
+    setUserToDelete(target);
+  };
+
+  const executeDeleteStaff = async () => {
+    if (!userToDelete) return;
+    setIsDeletingUser(true);
+    try {
+      await db.deleteUser(userToDelete.id);
+      toast.success(`Account for ${userToDelete.name || userToDelete.username} removed from database`);
+      setUserToDelete(null);
+    } catch (err: any) {
+      console.error('Delete staff error:', err);
+      toast.error(err?.message || 'Failed to remove account');
+    } finally {
+      setIsDeletingUser(false);
     }
   };
 
@@ -229,7 +232,7 @@ export function AdminStaff({ currentUser }: AdminStaffProps) {
             </span>
           </div>
           <p className="text-[#8c8a86] mt-1 text-sm">
-            Configure usernames, passwords, and permissions for all staff and administrator accounts.
+            Manage username credentials and access permissions for staff and administrator accounts.
           </p>
         </div>
         <button
@@ -241,20 +244,21 @@ export function AdminStaff({ currentUser }: AdminStaffProps) {
         </button>
       </div>
 
-      {/* Instructions / How-To Banner */}
+      {/* Instructions Banner */}
       <div className="bg-[#f0f6fa] border border-[#d2e4ef] p-4 rounded-2xl flex items-start gap-3.5">
         <div className="p-2 bg-[#5c869e]/15 text-[#5c869e] rounded-xl shrink-0 mt-0.5">
           <Info size={18} />
         </div>
         <div className="text-xs text-[#3c3c3b] space-y-1">
-          <p className="font-semibold text-sm text-[#2d4b5a]">How to Set &amp; Use Usernames</p>
+          <p className="font-semibold text-sm text-[#2d4b5a]">How to Sign In &amp; Authorize Releases</p>
           <p className="text-[#4b6573] leading-relaxed">
-            Staff and Administrators sign in using their <strong>Username</strong> and <strong>Password</strong> directly on the Staff / Admin tab of the login screen. You can set any custom username (e.g. <code className="bg-white px-1.5 py-0.5 rounded border border-[#d2e4ef] font-mono text-[11px]">sarah.staff</code>, <code className="bg-white px-1.5 py-0.5 rounded border border-[#d2e4ef] font-mono text-[11px]">admin</code>, or <code className="bg-white px-1.5 py-0.5 rounded border border-[#d2e4ef] font-mono text-[11px]">dublin_staff</code>) by clicking <strong>"Edit Account"</strong> below or creating a new account.
+            Staff and Administrators sign in simply using their <strong>Username</strong> and <strong>Password</strong>.
+            You can also use these same credentials when student pickup requires staff verification.
           </p>
         </div>
       </div>
 
-      {/* CREATE NEW USER FORM */}
+      {/* CREATE NEW USER FORM (No phone or email) */}
       {showAddForm && (
         <div className="bg-white p-6 rounded-[32px] border border-[#e5e1da] shadow-sm animate-in fade-in slide-in-from-top-2">
           <div className="flex items-center justify-between mb-4">
@@ -265,7 +269,7 @@ export function AdminStaff({ currentUser }: AdminStaffProps) {
             <button 
               type="button" 
               onClick={() => setShowAddForm(false)} 
-              className="text-[#8c8a86] hover:text-[#4a4a48] p-1"
+              className="text-[#8c8a86] hover:text-[#4a4a48] p-1 cursor-pointer"
             >
               <X size={18} />
             </button>
@@ -281,7 +285,7 @@ export function AdminStaff({ currentUser }: AdminStaffProps) {
                   required
                   value={username}
                   onChange={e => setUsername(e.target.value)}
-                  placeholder="e.g. sarah.staff or admin"
+                  placeholder="e.g. Instructor1 or FrontDesk"
                   className="w-full pl-10 pr-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b] font-mono text-sm"
                 />
                 <UserIcon size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8c8a86]" />
@@ -320,7 +324,7 @@ export function AdminStaff({ currentUser }: AdminStaffProps) {
                 required
                 value={name}
                 onChange={e => setName(e.target.value)}
-                placeholder="e.g. Sarah Jenkins"
+                placeholder="e.g. Staff Name"
                 className="w-full px-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b]"
               />
             </div>
@@ -335,35 +339,6 @@ export function AdminStaff({ currentUser }: AdminStaffProps) {
                 <option value="staff">Staff (Daily Student Check In / Out)</option>
                 <option value="admin">Administrator (Full System Access & Settings)</option>
               </select>
-            </div>
-
-            <div>
-              <label className="block text-[10px] uppercase tracking-widest text-[#8c8a86] font-bold mb-2">Phone Number (Optional)</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={phone}
-                  onChange={e => setPhone(formatPhoneNumber(e.target.value))}
-                  placeholder="(614) - 555- 0000"
-                  className="w-full pl-10 pr-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b]"
-                />
-                <Phone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8c8a86]" />
-              </div>
-              <p className="text-[11px] text-[#8c8a86] mt-1">Dashes not needed — just type 10 digits</p>
-            </div>
-
-            <div>
-              <label className="block text-[10px] uppercase tracking-widest text-[#8c8a86] font-bold mb-2">Email Address (Optional)</label>
-              <div className="relative">
-                <input
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  placeholder="sarah@school.org"
-                  className="w-full pl-10 pr-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b]"
-                />
-                <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8c8a86]" />
-              </div>
             </div>
 
             <div className="md:col-span-2 flex gap-3 pt-2">
@@ -387,7 +362,7 @@ export function AdminStaff({ currentUser }: AdminStaffProps) {
         </div>
       )}
 
-      {/* EDIT EXISTING USER MODAL / FORM */}
+      {/* EDIT EXISTING USER MODAL / FORM (No phone or email) */}
       {editingUser && (
         <div className="bg-white p-6 rounded-[32px] border-2 border-[#5c869e] shadow-md animate-in fade-in">
           <div className="flex items-center justify-between mb-4">
@@ -418,42 +393,10 @@ export function AdminStaff({ currentUser }: AdminStaffProps) {
                   value={editUsername}
                   onChange={e => setEditUsername(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b] font-mono text-sm font-bold"
-                  placeholder="e.g. smith.admin or admin"
+                  placeholder="e.g. Ajita or Sanjay"
                 />
                 <UserIcon size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#5c869e]" />
               </div>
-            </div>
-
-            <div className="flex flex-col justify-center">
-              <label className="block text-[10px] uppercase tracking-widest text-[#8c8a86] font-bold mb-2">
-                Account Security
-              </label>
-              <div className="p-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl flex items-center justify-between">
-                <div className="flex items-center gap-2 text-xs text-[#6e6c68]">
-                  <Lock size={14} className="text-[#5c869e]" />
-                  <span>Passwords managed securely via Auth</span>
-                </div>
-                {editingUser.email && (
-                  <button
-                    type="button"
-                    onClick={() => handleSendReset(editingUser.email!, editingUser.name)}
-                    className="text-xs text-[#5c869e] hover:underline font-bold"
-                  >
-                    Send Reset Link
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-[10px] uppercase tracking-widest text-[#8c8a86] font-bold mb-2">Full Name</label>
-              <input
-                type="text"
-                required
-                value={editName}
-                onChange={e => setEditName(e.target.value)}
-                className="w-full px-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b]"
-              />
             </div>
 
             <div>
@@ -468,33 +411,15 @@ export function AdminStaff({ currentUser }: AdminStaffProps) {
               </select>
             </div>
 
-            <div>
-              <label className="block text-[10px] uppercase tracking-widest text-[#8c8a86] font-bold mb-2">Phone Number</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={editPhone}
-                  onChange={e => setEditPhone(formatPhoneNumber(e.target.value))}
-                  placeholder="(614) - 555- 0000"
-                  className="w-full pl-10 pr-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b]"
-                />
-                <Phone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8c8a86]" />
-              </div>
-              <p className="text-[11px] text-[#8c8a86] mt-1">Dashes not needed — just type 10 digits</p>
-            </div>
-
-            <div>
-              <label className="block text-[10px] uppercase tracking-widest text-[#8c8a86] font-bold mb-2">Email Address</label>
-              <div className="relative">
-                <input
-                  type="email"
-                  value={editEmail}
-                  onChange={e => setEditEmail(e.target.value)}
-                  placeholder="user@school.org"
-                  className="w-full pl-10 pr-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b]"
-                />
-                <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8c8a86]" />
-              </div>
+            <div className="md:col-span-2">
+              <label className="block text-[10px] uppercase tracking-widest text-[#8c8a86] font-bold mb-2">Full Name</label>
+              <input
+                type="text"
+                required
+                value={editName}
+                onChange={e => setEditName(e.target.value)}
+                className="w-full px-4 py-3 bg-[#f8f6f3] border border-[#e5e1da] rounded-2xl outline-none focus:ring-2 focus:ring-[#5c869e] text-[#3c3c3b]"
+              />
             </div>
 
             <div className="md:col-span-2 flex gap-3 pt-2">
@@ -518,7 +443,7 @@ export function AdminStaff({ currentUser }: AdminStaffProps) {
         </div>
       )}
 
-      {/* STAFF & ADMIN TABLE */}
+      {/* STAFF & ADMIN TABLE (No phone or email columns) */}
       <div className="bg-white rounded-[32px] border border-[#e5e1da] shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -526,8 +451,8 @@ export function AdminStaff({ currentUser }: AdminStaffProps) {
               <tr>
                 <th className="px-8 py-5">Name &amp; Role</th>
                 <th className="px-8 py-5">Username (Login ID)</th>
-                <th className="px-8 py-5">Phone Number</th>
-                <th className="px-8 py-5">Email</th>
+                <th className="px-8 py-5">Access Permissions</th>
+                <th className="px-8 py-5">Status</th>
                 <th className="px-8 py-5 text-right">Actions</th>
               </tr>
             </thead>
@@ -549,28 +474,23 @@ export function AdminStaff({ currentUser }: AdminStaffProps) {
                     </span>
                   </td>
                   <td className="px-8 py-4 text-xs text-[#6b6965]">
-                    {s.phone ? (
-                      <span className="flex items-center gap-1.5 font-medium text-[#4a4a48]">
-                        <Phone size={13} className="text-[#8c8a86]" /> {s.phone}
-                      </span>
+                    {s.role === 'admin' ? (
+                      <span className="font-medium text-[#4b6573]">Full Administrator (All Controls)</span>
                     ) : (
-                      <span className="text-[#b5b3af]">-</span>
+                      <span className="text-[#8c8a86]">Staff Member (Check-In / Out)</span>
                     )}
                   </td>
-                  <td className="px-8 py-4 text-xs text-[#6b6965]">
-                    {s.email ? (
-                      <span className="flex items-center gap-1.5 text-[#6b6965]">
-                        <Mail size={13} className="text-[#8c8a86]" /> {s.email}
-                      </span>
-                    ) : (
-                      <span className="text-[#b5b3af]">-</span>
-                    )}
+                  <td className="px-8 py-4">
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-2 py-0.5 rounded-full">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                      Active
+                    </span>
                   </td>
                   <td className="px-8 py-4 text-right">
                     <div className="flex items-center justify-end gap-2.5">
                       <button 
                         onClick={() => handleStartEdit(s)}
-                        title="Edit Username, Password, and Info"
+                        title="Edit Username and Role"
                         className="px-3 py-1.5 bg-[#f0f6fa] hover:bg-[#5c869e] text-[#5c869e] hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
                       >
                         <Edit3 size={13} />
@@ -592,7 +512,7 @@ export function AdminStaff({ currentUser }: AdminStaffProps) {
                         </span>
                       ) : (
                         <button 
-                          onClick={() => deleteStaff(s.id, s.name)} 
+                          onClick={() => initiateDeleteStaff(s)} 
                           title="Remove Account"
                           className="p-1.5 text-[#d98466] hover:bg-[#d98466]/10 rounded-xl font-bold transition-all cursor-pointer"
                         >
@@ -607,6 +527,62 @@ export function AdminStaff({ currentUser }: AdminStaffProps) {
           </table>
         </div>
       </div>
+
+      {/* Remove Account Confirmation Modal */}
+      {userToDelete && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white max-w-md w-full rounded-[32px] p-6 sm:p-7 border border-[#e5e1da] shadow-2xl animate-in zoom-in-95 space-y-5">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-[#fff1ed] flex-shrink-0 flex items-center justify-center text-[#c95d3b]">
+                <Trash2 size={24} />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-lg font-serif font-bold text-[#4a4a48]">Remove Account?</h3>
+                <p className="text-xs text-[#8c8a86] leading-relaxed">
+                  Are you sure you want to remove <strong className="text-[#3c3c3b]">{userToDelete.name || userToDelete.username}</strong> (Username: <span className="font-mono text-[#5c869e] font-semibold">{userToDelete.username}</span>)? This user will no longer be able to sign in or perform actions in the system.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-[#fcfbf9] rounded-2xl border border-[#e5e1da] text-xs space-y-1 text-[#4a4a48]">
+              <div className="flex justify-between">
+                <span className="text-[#8c8a86]">Role:</span>
+                <span className="font-semibold capitalize">{userToDelete.role}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#8c8a86]">Account ID:</span>
+                <span className="font-mono text-[11px] text-[#8c8a86]">{userToDelete.id}</span>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={executeDeleteStaff}
+                disabled={isDeletingUser}
+                className="flex-1 py-3 bg-[#d98466] hover:bg-[#c95d3b] text-white font-bold rounded-xl text-xs transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
+              >
+                {isDeletingUser ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    Removing...
+                  </>
+                ) : (
+                  'Remove Account'
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setUserToDelete(null)}
+                disabled={isDeletingUser}
+                className="px-5 py-3 bg-[#f2efe9] text-[#8c8a86] hover:text-[#4a4a48] font-bold rounded-xl text-xs transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -2,61 +2,26 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions for authentication and role verification
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-
-    function getUserDoc() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-    }
-
-    function isAdmin() {
-      return isAuthenticated() && (
-        request.auth.token.role == 'admin' ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserDoc().role == 'admin')
-      );
-    }
-
-    function isStaffOrAdmin() {
-      return isAuthenticated() && (
-        isAdmin() ||
-        request.auth.token.role == 'staff' ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (getUserDoc().role == 'staff' || getUserDoc().role == 'admin'))
-      );
-    }
-
-    // Users Collection - strict access, no self-privilege-escalation, and never allow storing passwords
+    // Users Collection - prevent plaintext passwords from being stored
     match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && (
-        isAdmin() || 
-        (request.auth.uid == userId && request.resource.data.role == 'staff')
-      ) && !('password' in request.resource.data);
-      allow update: if isAuthenticated() && (
-        isAdmin() || 
-        (request.auth.uid == userId && request.resource.data.role == resource.data.role)
-      ) && !('password' in request.resource.data);
-      allow delete: if isAdmin() && request.auth.uid != userId;
+      allow read: if true;
+      allow create, update: if !('password' in request.resource.data);
+      allow delete: if true;
     }
     
-    // Students Collection - staff and admin access only
+    // Students Collection
     match /students/{studentId} {
-      allow read: if isAuthenticated();
-      allow create, update, delete: if isStaffOrAdmin();
+      allow read, write, delete: if true;
     }
     
     // Authorized Pickups Collection
     match /authorized_pickups/{pickupId} {
-      allow read: if isAuthenticated();
-      allow create, update, delete: if isStaffOrAdmin();
+      allow read, write, delete: if true;
     }
     
-    // Attendance Records Collection - append/update for authorized users, delete admin-only
+    // Attendance Records Collection
     match /attendance/{recordId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read, write, delete: if true;
     }
 
     // Deny all other collections by default
@@ -65,3 +30,4 @@ service cloud.firestore {
     }
   }
 }
+

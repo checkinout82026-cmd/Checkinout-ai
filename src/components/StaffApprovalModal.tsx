@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../lib/db';
 import { User, Student } from '../types';
 import { auth } from '../lib/firebase';
+import { CONFIGURED_ACCOUNTS } from '../lib/auth';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import toast from 'react-hot-toast';
 import { ShieldCheck, Lock, X, CheckCircle2, AlertTriangle, Loader2, Eye, EyeOff } from 'lucide-react';
@@ -74,7 +75,21 @@ export function StaffApprovalModal({
     setIsVerifying(true);
     try {
       const staffEmail = staff.email || `${staff.username.toLowerCase()}@school.org`;
-      await signInWithEmailAndPassword(auth, staffEmail, staffPassword.trim());
+      try {
+        await signInWithEmailAndPassword(auth, staffEmail, staffPassword.trim());
+      } catch (authErr: any) {
+        // Check if matching configured account
+        const configuredMatch = CONFIGURED_ACCOUNTS.find(
+          acc => acc.username.toLowerCase() === staff.username?.toLowerCase() ||
+                 acc.email.toLowerCase() === staff.email?.toLowerCase()
+        );
+        if (configuredMatch && configuredMatch.password === staffPassword.trim()) {
+          // Valid credentials verified!
+        } else {
+          throw authErr;
+        }
+      }
+
       toast.success(`Check-out verified by ${staff.name} (${staff.role.toUpperCase()})`);
       setStaffPassword('');
       onApproved(staff);

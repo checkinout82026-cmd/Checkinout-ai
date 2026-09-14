@@ -4,7 +4,7 @@ import { Student } from '../types';
 import { parseStudentCSV } from '../lib/csvParser';
 import { formatPhoneNumber, sanitizeCsvCell } from '../lib/utils';
 import toast from 'react-hot-toast';
-import { Sparkles, Hash, Search, Upload, Download, FileText, X, Check, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Sparkles, Hash, Search, Upload, Download, FileText, X, Check, ArrowUpDown, ArrowUp, ArrowDown, Trash2, Loader2 } from 'lucide-react';
 
 export function AdminStudents() {
   const [students, setStudents] = useState<Student[]>([]);
@@ -18,6 +18,10 @@ export function AdminStudents() {
   const [importCsvText, setImportCsvText] = useState('');
   const [parsedStudents, setParsedStudents] = useState<Student[]>([]);
   const [isImporting, setIsImporting] = useState(false);
+
+  // Deletion Modal State
+  const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
+  const [isDeletingStudent, setIsDeletingStudent] = useState(false);
 
   // Form State
   const [id, setId] = useState('');
@@ -206,10 +210,22 @@ export function AdminStudents() {
     setNotes(student.notes || '');
   };
 
-  const deleteStudent = async (studentId: string) => {
-    if (confirm('Are you sure you want to delete this student from the database?')) {
-      await db.deleteStudent(studentId);
-      toast.success('Student deleted from Firebase');
+  const confirmDeleteStudent = (student: Student) => {
+    setStudentToDelete(student);
+  };
+
+  const executeDeleteStudent = async () => {
+    if (!studentToDelete) return;
+    setIsDeletingStudent(true);
+    try {
+      await db.deleteStudent(studentToDelete.id);
+      toast.success(`Student "${studentToDelete.name}" deleted from database`);
+      setStudentToDelete(null);
+    } catch (err: any) {
+      console.error('Failed to delete student:', err);
+      toast.error(err?.message || 'Failed to delete student');
+    } finally {
+      setIsDeletingStudent(false);
     }
   };
 
@@ -528,7 +544,7 @@ export function AdminStudents() {
                     </td>
                     <td className="px-8 py-4 text-right space-x-4">
                       <button onClick={() => editStudent(s)} className="text-[#5c869e] hover:opacity-80 font-bold uppercase tracking-wider text-[10px] cursor-pointer">Edit</button>
-                      <button onClick={() => deleteStudent(s.id)} className="text-[#d98466] hover:opacity-80 font-bold uppercase tracking-wider text-[10px] cursor-pointer">Delete</button>
+                      <button onClick={() => confirmDeleteStudent(s)} className="text-[#d98466] hover:opacity-80 font-bold uppercase tracking-wider text-[10px] cursor-pointer">Delete</button>
                     </td>
                   </tr>
                 );
@@ -651,6 +667,61 @@ export function AdminStudents() {
                 type="button"
                 onClick={() => setShowImportModal(false)}
                 disabled={isImporting}
+                className="px-5 py-3 bg-[#f2efe9] text-[#8c8a86] hover:text-[#4a4a48] font-bold rounded-xl text-xs transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Delete Confirmation Modal */}
+      {studentToDelete && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white max-w-md w-full rounded-[32px] p-6 sm:p-7 border border-[#e5e1da] shadow-2xl animate-in zoom-in-95 space-y-5">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-[#fff1ed] flex-shrink-0 flex items-center justify-center text-[#c95d3b]">
+                <Trash2 size={24} />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-lg font-serif font-bold text-[#4a4a48]">Delete Student?</h3>
+                <p className="text-xs text-[#8c8a86] leading-relaxed">
+                  Are you sure you want to permanently delete <strong className="text-[#3c3c3b]">{studentToDelete.name}</strong> (ID: <span className="font-mono text-[#5c869e] font-semibold">{studentToDelete.id}</span>)? This will remove their profile from the database.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-[#fcfbf9] rounded-2xl border border-[#e5e1da] text-xs space-y-1 text-[#4a4a48]">
+              <div className="flex justify-between">
+                <span className="text-[#8c8a86]">Parent / Guardian:</span>
+                <span className="font-semibold">{studentToDelete.parent?.name || studentToDelete.parentName || '-'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#8c8a86]">Emergency Phone:</span>
+                <span className="font-semibold">{studentToDelete.parent?.phone || studentToDelete.parentPhone || '-'}</span>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={executeDeleteStudent}
+                disabled={isDeletingStudent}
+                className="flex-1 py-3 bg-[#d98466] hover:bg-[#c95d3b] text-white font-bold rounded-xl text-xs transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
+              >
+                {isDeletingStudent ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  'Delete Student'
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setStudentToDelete(null)}
+                disabled={isDeletingStudent}
                 className="px-5 py-3 bg-[#f2efe9] text-[#8c8a86] hover:text-[#4a4a48] font-bold rounded-xl text-xs transition-colors cursor-pointer"
               >
                 Cancel

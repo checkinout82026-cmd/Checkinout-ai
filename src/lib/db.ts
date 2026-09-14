@@ -6,6 +6,7 @@ import {
   deleteDoc, 
   onSnapshot, 
   query, 
+  where,
   orderBy, 
   writeBatch
 } from 'firebase/firestore';
@@ -16,28 +17,74 @@ import { TEN_STUDENTS, INITIAL_ATTENDANCE_RECORDS, generate10Students } from './
 const USERS_KEY = 'checkin_users';
 const STUDENTS_KEY = 'checkin_students';
 const ATTENDANCE_KEY = 'checkin_attendance';
+const DELETED_USERS_KEY = 'checkin_deleted_users';
+
+export function getDeletedUsers(): string[] {
+  try {
+    const raw = localStorage.getItem(DELETED_USERS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+const PRIMARY_SYSTEM_ACCOUNTS = ['ajita', 'sanjay', 'centerstaff', 'admin_ajita', 'admin_sanjay', 'staff_centerstaff'];
+
+export function isUserDeleted(idOrUsername?: string): boolean {
+  if (!idOrUsername) return false;
+  const lower = idOrUsername.toLowerCase().trim();
+  // Never block the 3 required primary accounts
+  if (PRIMARY_SYSTEM_ACCOUNTS.includes(lower)) return false;
+  const deleted = getDeletedUsers();
+  return deleted.some(d => d.toLowerCase().trim() === lower);
+}
+
+export function markUserDeleted(id: string, username?: string): void {
+  try {
+    const deleted = getDeletedUsers();
+    const set = new Set(deleted.map(d => d.toLowerCase().trim()));
+    if (id) set.add(id.toLowerCase().trim());
+    if (username) set.add(username.toLowerCase().trim());
+    localStorage.setItem(DELETED_USERS_KEY, JSON.stringify(Array.from(set)));
+  } catch (e) {
+    console.warn('Error saving deleted user tombstone:', e);
+  }
+}
+
 
 export const defaultUsers: User[] = [
   { 
-    id: 'admin_smith', 
-    username: 'smith.admin', 
+    id: 'admin_ajita', 
+    username: 'Ajita', 
     role: 'admin', 
-    name: 'Smith Admin', 
-    fullName: 'Smith Admin', 
-    email: 'smith.admin@school.com', 
-    phone: '555-0100', 
+    name: 'Ajita', 
+    fullName: 'Ajita', 
+    email: 'ajita@school.org', 
+    phone: '', 
+    isActive: true, 
+    createdAt: new Date().toISOString(), 
+    updatedAt: new Date().toISOString() 
+  },
+  { 
+    id: 'admin_sanjay', 
+    username: 'Sanjay', 
+    role: 'admin', 
+    name: 'Sanjay', 
+    fullName: 'Sanjay', 
+    email: 'sanjay@school.org', 
+    phone: '', 
     isActive: true, 
     createdAt: new Date().toISOString(), 
     updatedAt: new Date().toISOString() 
   },
   {
-    id: 'staff_adams',
-    username: 'adams.staff',
+    id: 'staff_centerstaff',
+    username: 'CenterStaff',
     role: 'staff',
-    name: 'Adams Staff',
-    fullName: 'Adams Staff',
-    email: 'adams.staff@school.com',
-    phone: '555-0102',
+    name: 'CenterStaff',
+    fullName: 'Center Staff',
+    email: 'centerstaff@school.org',
+    phone: '',
     isActive: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
@@ -105,10 +152,15 @@ export const db = {
       usersSnap.forEach(docSnap => {
         const data = docSnap.data() as any;
         const { password, ...sanitized } = data;
-        list.push({ ...sanitized, id: sanitized.id || docSnap.id });
+        const u = { ...sanitized, id: sanitized.id || docSnap.id } as User;
+        if (!isUserDeleted(u.id) && !isUserDeleted(u.username)) {
+          list.push(u);
+        }
       });
 
-      const nextUsers = list.length > 0 ? list : defaultUsers;
+      const nextUsers = list.length > 0 
+        ? list 
+        : defaultUsers.filter(u => !isUserDeleted(u.id) && !isUserDeleted(u.username));
       cachedUsers = nextUsers;
       localStorage.setItem(USERS_KEY, JSON.stringify(nextUsers));
       return nextUsers;
@@ -160,14 +212,33 @@ export const db = {
         throw new Error('Cannot delete the last remaining administrator account.');
       }
     }
+
+    // Mark as deleted so automated initial seeding never resurrects it
+    markUserDeleted(id, target?.username);
+
     const updated = allUsers.filter(u => u.id !== id);
     cachedUsers = updated;
     localStorage.setItem(USERS_KEY, JSON.stringify(updated));
+
     try {
       await deleteDoc(doc(firestore, 'users', id));
     } catch (err) {
-      console.warn('Firestore deleteUser error:', err);
-      throw err;
+      console.warn('Firestore deleteUser id doc error:', err);
+    }
+
+    if (target?.username) {
+      try {
+        const uLower = target.username.toLowerCase();
+        await deleteDoc(doc(firestore, 'users', `admin_${uLower}`)).catch(() => {});
+        await deleteDoc(doc(firestore, 'users', `staff_${uLower}`)).catch(() => {});
+        const userQ = query(collection(firestore, 'users'), where('username', '==', target.username));
+        const snap = await getDocs(userQ);
+        for (const d of snap.docs) {
+          await deleteDoc(d.ref).catch(() => {});
+        }
+      } catch (e) {
+        console.warn('Firestore deleteUser username cleanup error:', e);
+      }
     }
   },
 
@@ -321,6 +392,13 @@ export const db = {
     localStorage.setItem(STUDENTS_KEY, JSON.stringify(current));
     try {
       await deleteDoc(doc(firestore, 'students', id));
+      const q = query(collection(firestore, 'students'), where('id', '==', id));
+      const snap = await getDocs(q);
+      for (const d of snap.docs) {
+        if (d.id !== id) {
+          await deleteDoc(d.ref).catch(() => {});
+        }
+      }
     } catch (err) {
       console.warn('Firestore deleteStudent error:', err);
     }
@@ -548,24 +626,19 @@ export const db = {
         if (!snapshot.empty) {
           const list: User[] = [];
           snapshot.forEach(docSnap => {
-            list.push(docSnap.data() as User);
+            const u = docSnap.data() as User;
+            const fullUser = { ...u, id: u.id || docSnap.id };
+            if (!isUserDeleted(fullUser.id) && !isUserDeleted(fullUser.username)) {
+              list.push(fullUser);
+            }
           });
-          
-          // Ensure KeshavKousik is always in database and list
-          if (!list.some(u => u.username?.toLowerCase() === 'keshavkousik' || u.id === 'admin_keshav')) {
-            const adminDoc = defaultUsers[0];
-            list.unshift(adminDoc);
-            setDoc(doc(firestore, 'users', 'admin_keshav'), adminDoc, { merge: true }).catch(() => {});
-          }
 
           cachedUsers = list;
           localStorage.setItem(USERS_KEY, JSON.stringify(list));
           callback(list);
         } else {
-          // Empty collection: write admin to Firestore
-          const adminDoc = defaultUsers[0];
-          setDoc(doc(firestore, 'users', 'admin_keshav'), adminDoc, { merge: true }).catch(() => {});
-          callback(defaultUsers);
+          const activeDefaults = defaultUsers.filter(u => !isUserDeleted(u.id) && !isUserDeleted(u.username));
+          callback(activeDefaults);
         }
       }, (err) => {
         console.warn('Users onSnapshot error:', err);
@@ -660,6 +733,7 @@ export const db = {
     initialized = true;
 
     // Clean legacy test users from local storage if present
+    const legacyIds = new Set(['u1', 'u2', 'u3', 'u4', 'admin_smith', 'staff_adams', 'admin_keshav']);
     const localUsersData = localStorage.getItem(USERS_KEY);
     if (!localUsersData) {
       localStorage.setItem(USERS_KEY, JSON.stringify(defaultUsers));
@@ -667,16 +741,13 @@ export const db = {
     } else {
       try {
         const parsed: User[] = JSON.parse(localUsersData);
-        const legacyIds = new Set(['u1', 'u2', 'u3', 'u4']);
-        let filtered = parsed.filter(u => !legacyIds.has(u.id));
+        let filtered = parsed.filter(u => !legacyIds.has(u.id) && !legacyIds.has(u.username?.toLowerCase()));
         
-        // Upgrade smith.admin to KeshavKousik if present in cache
-        const smithIdx = filtered.findIndex(u => u.id === 'admin_smith' || u.username === 'smith.admin');
-        if (smithIdx >= 0) {
-          filtered[smithIdx] = defaultUsers[0];
-        } else if (!filtered.some(u => u.username?.toLowerCase() === 'keshavkousik' || u.id === 'admin_keshav')) {
-          filtered.unshift(defaultUsers[0]);
-        }
+        defaultUsers.forEach(defUser => {
+          if (!filtered.some(u => u.username?.toLowerCase() === defUser.username.toLowerCase())) {
+            filtered.push(defUser);
+          }
+        });
         localStorage.setItem(USERS_KEY, JSON.stringify(filtered));
         cachedUsers = filtered;
       } catch {
@@ -718,14 +789,25 @@ export const db = {
       await db.loadAttendanceFromFirestore();
       const usersSnap = await getDocs(collection(firestore, 'users'));
 
-      // Clean up legacy users (u1, u2, u3, u4) from Firestore
-      const legacyIds = ['u1', 'u2', 'u3', 'u4'];
+      // Clean up legacy users from Firestore
+      const legacyCleanup = ['u1', 'u2', 'u3', 'u4', 'admin_smith', 'staff_adams', 'admin_keshav'];
       for (const d of usersSnap.docs) {
-        if (legacyIds.includes(d.id)) {
+        if (legacyCleanup.includes(d.id) || legacyCleanup.includes(d.data()?.username?.toLowerCase())) {
           try {
             await deleteDoc(doc(firestore, 'users', d.id));
           } catch (e) {
             console.warn('Legacy user delete notice:', e);
+          }
+        }
+      }
+
+      // Ensure configured accounts exist in Firestore if not deleted
+      for (const defUser of defaultUsers) {
+        if (!isUserDeleted(defUser.id) && !isUserDeleted(defUser.username)) {
+          try {
+            await setDoc(doc(firestore, 'users', defUser.id), defUser, { merge: true });
+          } catch (e) {
+            console.warn('Default user set notice:', e);
           }
         }
       }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { db } from './lib/db';
-import { subscribeToAuthState, signOutFirebase } from './lib/auth';
+import { subscribeToAuthState, signOutFirebase, autoProvisionConfiguredAccounts } from './lib/auth';
 import { User } from './types';
 import { Toaster } from 'react-hot-toast';
 
@@ -43,6 +43,7 @@ export default function App() {
 
     // Initialize DB with seed data if empty
     db.init();
+    autoProvisionConfiguredAccounts().catch(() => {});
     
     // Check local storage for persistent session
     const storedUser = localStorage.getItem('activeUser');
@@ -121,9 +122,6 @@ export default function App() {
     setUser(null);
     localStorage.removeItem('activeUser');
     localStorage.removeItem('appMode');
-    localStorage.removeItem('checkin_users');
-    localStorage.removeItem('checkin_students');
-    localStorage.removeItem('checkin_attendance');
   };
 
   const switchMode = (mode: 'kiosk' | 'dashboard') => {
