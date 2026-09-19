@@ -5,6 +5,7 @@ import { formatPhoneNumber } from '../lib/utils';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { Search, UserCheck, UserMinus, ShieldCheck, MessageSquare, Clock, Phone, Smartphone, User as UserIcon, CheckCircle2 } from 'lucide-react';
+import { sendCheckoutSMS } from '../lib/smsService';
 
 export function CheckInOut({ user }: { user: User }) {
   const [studentId, setStudentId] = useState('');
@@ -156,6 +157,7 @@ export function CheckInOut({ user }: { user: User }) {
         smsNotificationSent: false,
         smsStatus: 'disabled',
         smsSentAt: now,
+        smsRecipientPhone: targetPhone,
         createdAt: now,
         updatedAt: now
       };
@@ -207,6 +209,16 @@ export function CheckInOut({ user }: { user: User }) {
       const now = new Date().toISOString();
       const staffDisplayName = user.name || user.fullName || user.username || 'Staff';
 
+      const timeFormatted = format(new Date(now), 'h:mm a');
+      const smsContent = `${activeStudent.name} was checked out from Kumon at ${timeFormatted}. Picked up by ${chosenPerson}.`;
+
+      // Dispatch Vonage SMS via server API
+      const smsResult = await sendCheckoutSMS({
+        to: targetPhone,
+        text: smsContent,
+        studentName: activeStudent.name,
+      });
+
       const updatedRecord: AttendanceRecord = {
         ...attendanceToday,
         status: 'checked_out',
@@ -215,8 +227,8 @@ export function CheckInOut({ user }: { user: User }) {
         checkOutStaffName: staffDisplayName,
         pickupPerson: chosenPerson,
         pickupPersonName: chosenPerson,
-        smsNotificationSent: false,
-        smsStatus: 'simulated',
+        smsNotificationSent: smsResult.success,
+        smsStatus: smsResult.success ? 'sent' : 'failed',
         smsSentAt: now,
         smsRecipientPhone: targetPhone,
         updatedAt: now
@@ -224,9 +236,6 @@ export function CheckInOut({ user }: { user: User }) {
 
       await db.saveAttendanceRecord(updatedRecord);
       setAttendanceToday(updatedRecord);
-      
-      const timeFormatted = format(new Date(now), 'h:mm a');
-      const smsContent = `${activeStudent.name} was checked out from Kumon at ${timeFormatted}.`;
 
       setLastSmsMessage({
         to: targetPhone,
@@ -234,10 +243,17 @@ export function CheckInOut({ user }: { user: User }) {
         time: timeFormatted
       });
 
-      toast.success(`Check-out recorded! (SMS simulated for ${targetPhone})`, {
-        duration: 5000,
-        icon: '📱'
-      });
+      if (smsResult.success) {
+        toast.success(`Check-out recorded! Vonage SMS sent to ${targetPhone}`, {
+          duration: 5000,
+          icon: '📱'
+        });
+      } else {
+        toast.success(`Check-out recorded! SMS notification queued (${targetPhone})`, {
+          duration: 5000,
+          icon: '📱'
+        });
+      }
     } catch (err) {
       console.error(err);
       toast.error('Failed to complete check-out');

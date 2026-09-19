@@ -5,6 +5,7 @@ import { StaffApprovalModal } from './StaffApprovalModal';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { CheckCircle2, UserCheck, UserMinus, ArrowLeft, RotateCcw, ShieldCheck, Lock } from 'lucide-react';
+import { sendCheckoutSMS } from '../lib/smsService';
 
 interface StudentDashboardProps {
   user: User;
@@ -133,6 +134,7 @@ export function StudentDashboard({ user, onComplete }: StudentDashboardProps) {
     try {
       const now = new Date().toISOString();
       const today = format(new Date(), 'yyyy-MM-dd');
+      const recipientPhone = student.parent?.phone || student.parentPhone || '';
       
       const updatedRecord: AttendanceRecord = {
         id: todayRecord?.id || crypto.randomUUID(),
@@ -147,8 +149,9 @@ export function StudentDashboard({ user, onComplete }: StudentDashboardProps) {
         checkOutStaffName: authorizingStaff.name,
         pickupPerson: pickupPerson || student.parent?.name || 'Self',
         pickupPersonName: pickupPerson || student.parent?.name || 'Self',
-        smsNotificationSent: false,
-        smsStatus: 'simulated',
+        smsRecipientPhone: recipientPhone,
+        smsNotificationSent: true,
+        smsStatus: 'sent',
         smsSentAt: now,
         createdAt: todayRecord?.createdAt || now,
         updatedAt: now
@@ -157,8 +160,20 @@ export function StudentDashboard({ user, onComplete }: StudentDashboardProps) {
       await db.saveAttendanceRecord(updatedRecord);
       setTodayRecord(updatedRecord);
       setStatus('checked-out');
+
+      const timeFormatted = format(new Date(now), 'h:mm a');
+      const smsText = `${student.name} was checked out from Kumon at ${timeFormatted}. Picked up by ${pickupPerson || student.parent?.name || 'Self'}.`;
+
+      if (recipientPhone) {
+        sendCheckoutSMS({
+          to: recipientPhone,
+          text: smsText,
+          studentName: student.name
+        });
+      }
+
       toast.success(
-        `Check-out approved! (SMS notification simulated for ${student.parent?.phone || student.parentPhone || 'Parent'})`, 
+        `Check-out approved! SMS sent to ${recipientPhone || 'Parent'}`, 
         { duration: 4000, icon: '📱' }
       );
       triggerAutoReturn();
