@@ -1,6 +1,20 @@
-export type Role = 'staff' | 'admin' | 'student';
+export type Role = 'staff' | 'admin' | 'student' | 'super_admin';
 
 export type AttendanceStatus = 'checked_in' | 'checked_out' | 'absent' | 'excused';
+
+export interface School {
+  id: string;
+  name: string;
+  slug: string;
+  subtitle?: string;
+  logoUrl?: string;
+  themeColor?: string;
+  address?: string;
+  phone?: string;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
 
 export interface User {
   id: string;
@@ -10,6 +24,7 @@ export interface User {
   fullName?: string;
   email?: string;
   phone?: string;
+  schoolId?: string;
   isActive?: boolean;
   createdAt?: string;
   updatedAt?: string;
@@ -25,6 +40,7 @@ export interface Parent {
 export interface AuthorizedPickupPerson {
   id?: string;
   studentId?: string;
+  schoolId?: string;
   name: string;
   relationship?: string;
   phone?: string;
@@ -36,6 +52,7 @@ export interface AuthorizedPickupPerson {
 export interface Student {
   id: string; // 12-character alphanumeric or numeric ID (e.g. "100000000001" or "KM8291048291")
   userId?: string;
+  schoolId?: string;
   name: string;
   fullName?: string;
   gradeLevel?: string;
@@ -55,6 +72,7 @@ export interface Student {
 export interface AttendanceRecord {
   id: string;
   studentId: string;
+  schoolId?: string;
   studentName?: string;
   date: string; // YYYY-MM-DD
   status?: AttendanceStatus;

@@ -24,6 +24,12 @@ service cloud.firestore {
       allow read, write, delete: if true;
     }
 
+    // Schools Collection
+    match /schools/{schoolId} {
+      allow read: if true;
+      allow write: if false; // Read-only for standard clients; provisioned by admin
+    }
+
     // Deny all other collections by default
     match /{document=**} {
       allow read, write: if false;

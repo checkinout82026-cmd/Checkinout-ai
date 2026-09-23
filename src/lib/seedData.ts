@@ -351,16 +351,94 @@ export const SYNTHETIC_STUDENTS: Student[] = [
     createdAt: "2026-08-01T08:00:00.000Z",
     updatedAt: "2026-08-01T08:00:00.000Z"
   }
+].map((s: any): Student => ({
+  ...s,
+  schoolId: s.schoolId || 'school_dublin_east',
+  authorizedPickupDetails: s.authorizedPickupDetails?.map((p: any) => ({ ...p, schoolId: 'school_dublin_east' }))
+}));
+
+export const SCHOOL_B_STUDENTS: Student[] = [
+  {
+    id: "20001",
+    schoolId: "school_dublin_west",
+    name: "Leo Garcia",
+    fullName: "Leo Garcia",
+    gradeLevel: "Kumon Student",
+    parent: {
+      name: "Carlos Garcia",
+      phone: "555-0202",
+      phone2: "555-0203",
+      email: "carlos.garcia@example.com"
+    },
+    parentName: "Carlos Garcia",
+    parentPhone: "555-0202",
+    parentPhone2: "555-0203",
+    parentEmail: "carlos.garcia@example.com",
+    authorizedPickups: ["Carlos Garcia", "Maria Garcia"],
+    authorizedPickupDetails: [
+      {
+        name: "Carlos Garcia",
+        relationship: "Father",
+        phone: "555-0202",
+        schoolId: "school_dublin_west",
+        isPrimary: true
+      },
+      {
+        name: "Maria Garcia",
+        relationship: "Mother",
+        phone: "555-0203",
+        schoolId: "school_dublin_west",
+        isPrimary: false
+      }
+    ],
+    notes: "West Campus Student - Nut allergy",
+    isActive: true,
+    createdAt: "2026-08-01T08:00:00.000Z",
+    updatedAt: "2026-08-01T08:00:00.000Z"
+  },
+  {
+    id: "20002",
+    schoolId: "school_dublin_west",
+    name: "Maya Lin",
+    fullName: "Maya Lin",
+    gradeLevel: "Kumon Student",
+    parent: {
+      name: "Helen Lin",
+      phone: "555-0212",
+      phone2: "555-0213",
+      email: "helen.lin@example.com"
+    },
+    parentName: "Helen Lin",
+    parentPhone: "555-0212",
+    parentPhone2: "555-0213",
+    parentEmail: "helen.lin@example.com",
+    authorizedPickups: ["Helen Lin"],
+    authorizedPickupDetails: [
+      {
+        name: "Helen Lin",
+        relationship: "Mother",
+        phone: "555-0212",
+        schoolId: "school_dublin_west",
+        isPrimary: true
+      }
+    ],
+    notes: "West Campus Student",
+    isActive: true,
+    createdAt: "2026-08-01T08:00:00.000Z",
+    updatedAt: "2026-08-01T08:00:00.000Z"
+  }
 ];
 
 export const ACTUAL_STUDENTS: Student[] = SYNTHETIC_STUDENTS;
 export const DUMMY_STUDENTS: Student[] = SYNTHETIC_STUDENTS;
 export const TEN_STUDENTS: Student[] = SYNTHETIC_STUDENTS;
+export const ALL_SEED_STUDENTS: Student[] = [...SYNTHETIC_STUDENTS, ...SCHOOL_B_STUDENTS];
 
 export const INITIAL_ATTENDANCE_RECORDS: AttendanceRecord[] = [
   {
     id: "att-1",
     studentId: "10001",
+    schoolId: "school_dublin_east",
     studentName: "Alex Morgan",
     date: "2026-08-29",
     checkInTime: "2026-08-29T15:30:00.000Z",
@@ -377,5 +455,28 @@ export const INITIAL_ATTENDANCE_RECORDS: AttendanceRecord[] = [
   }
 ];
 
+export const SCHOOL_B_ATTENDANCE: AttendanceRecord[] = [
+  {
+    id: "att-west-1",
+    studentId: "20001",
+    schoolId: "school_dublin_west",
+    studentName: "Leo Garcia",
+    date: "2026-08-29",
+    checkInTime: "2026-08-29T16:00:00.000Z",
+    checkOutTime: "2026-08-29T16:45:00.000Z",
+    checkInMethod: "student_self",
+    checkInStaffName: "West Kiosk",
+    checkOutStaffName: "West Kiosk",
+    pickupPerson: "Carlos Garcia",
+    pickupPersonName: "Carlos Garcia",
+    status: "checked_out",
+    smsNotificationSent: true,
+    createdAt: "2026-08-29T16:00:00.000Z",
+    updatedAt: "2026-08-29T16:45:00.000Z"
+  }
+];
+
+export const ALL_SEED_ATTENDANCE: AttendanceRecord[] = [...INITIAL_ATTENDANCE_RECORDS, ...SCHOOL_B_ATTENDANCE];
 export const DUMMY_ATTENDANCE: AttendanceRecord[] = INITIAL_ATTENDANCE_RECORDS;
 export const generate10Students = (): Student[] => SYNTHETIC_STUDENTS;
+

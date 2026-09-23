@@ -21,6 +21,7 @@ export interface ConfiguredAccount {
   fullName: string;
   password: string;
   email: string;
+  schoolId?: string;
 }
 
 export const CONFIGURED_ACCOUNTS: ConfiguredAccount[] = [
@@ -28,25 +29,45 @@ export const CONFIGURED_ACCOUNTS: ConfiguredAccount[] = [
     username: 'Ajita',
     role: 'admin',
     name: 'Ajita',
-    fullName: 'Ajita',
+    fullName: 'Ajita (Dublin - East Admin)',
     password: 'Oh43016',
-    email: 'ajita@school.org'
+    email: 'ajita@school.org',
+    schoolId: 'school_dublin_east'
   },
   {
     username: 'Sanjay',
     role: 'admin',
     name: 'Sanjay',
-    fullName: 'Sanjay',
+    fullName: 'Sanjay (Dublin - West Admin)',
     password: 'Oh43016',
-    email: 'sanjay@school.org'
+    email: 'sanjay@school.org',
+    schoolId: 'school_dublin_west'
   },
   {
     username: 'CenterStaff',
     role: 'staff',
     name: 'CenterStaff',
-    fullName: 'Center Staff',
+    fullName: 'Center Staff (Dublin - East)',
     password: 'Oh43017',
-    email: 'centerstaff@school.org'
+    email: 'centerstaff@school.org',
+    schoolId: 'school_dublin_east'
+  },
+  {
+    username: 'WestStaff',
+    role: 'staff',
+    name: 'WestStaff',
+    fullName: 'Center Staff (Dublin - West)',
+    password: 'Oh43017',
+    email: 'weststaff@school.org',
+    schoolId: 'school_dublin_west'
+  },
+  {
+    username: 'SuperAdmin',
+    role: 'super_admin',
+    name: 'SuperAdmin',
+    fullName: 'Central Multi-School Administrator',
+    password: 'Oh43016',
+    email: 'superadmin@school.org'
   }
 ];
 
@@ -70,6 +91,7 @@ export async function getAppUserFromFirebase(firebaseUser: FirebaseUser): Promis
         fullName: data.fullName || displayName,
         role: data.role || 'staff',
         username: data.username || email.split('@')[0] || uid.slice(0, 8),
+        schoolId: data.schoolId,
       };
     }
 
@@ -86,6 +108,7 @@ export async function getAppUserFromFirebase(firebaseUser: FirebaseUser): Promis
       email: email,
       phone: existing?.phone || '',
       role: role,
+      schoolId: existing?.schoolId,
       isActive: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -152,7 +175,8 @@ export async function signInWithEmail(usernameOrEmail: string, password: string)
     const appUser = await getAppUserFromFirebase(userCredential.user);
     return {
       ...appUser,
-      username: match?.username || configuredMatch?.username || appUser.username
+      username: match?.username || configuredMatch?.username || appUser.username,
+      schoolId: match?.schoolId || configuredMatch?.schoolId || appUser.schoolId
     };
   } catch (authError: any) {
     console.warn('Firebase Auth error:', authError?.code);
@@ -167,7 +191,8 @@ export async function signInWithEmail(usernameOrEmail: string, password: string)
         return {
           ...appUser,
           username: configuredMatch.username,
-          role: configuredMatch.role
+          role: configuredMatch.role,
+          schoolId: configuredMatch.schoolId
         };
       } catch (createErr: any) {
         console.warn('Firebase auto-create during login attempt notice:', createErr?.code);
@@ -182,6 +207,7 @@ export async function signInWithEmail(usernameOrEmail: string, password: string)
         email: configuredMatch.email,
         phone: '',
         role: configuredMatch.role,
+        schoolId: match?.schoolId || configuredMatch.schoolId,
         isActive: true,
         createdAt: match?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -228,6 +254,7 @@ export async function autoProvisionConfiguredAccounts(): Promise<void> {
         email: acc.email,
         phone: '',
         role: acc.role,
+        schoolId: acc.schoolId,
         isActive: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -247,6 +274,7 @@ export async function autoProvisionConfiguredAccounts(): Promise<void> {
           email: acc.email,
           phone: '',
           role: acc.role,
+          schoolId: acc.schoolId,
           isActive: true,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()

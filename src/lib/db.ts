@@ -6,13 +6,20 @@ import {
   deleteDoc, 
   onSnapshot, 
   query, 
-  where,
+  where, 
   orderBy, 
-  writeBatch
+  writeBatch 
 } from 'firebase/firestore';
 import { firestore } from './firebase';
 import { User, Student, AttendanceRecord, AuthorizedPickupPerson } from '../types';
-import { TEN_STUDENTS, INITIAL_ATTENDANCE_RECORDS, generate10Students } from './seedData';
+import { 
+  ALL_SEED_STUDENTS, 
+  ALL_SEED_ATTENDANCE, 
+  TEN_STUDENTS, 
+  INITIAL_ATTENDANCE_RECORDS, 
+  generate10Students 
+} from './seedData';
+import { getActiveSchoolId } from './tenantContext';
 
 const USERS_KEY = 'checkin_users';
 const STUDENTS_KEY = 'checkin_students';
@@ -28,12 +35,23 @@ export function getDeletedUsers(): string[] {
   }
 }
 
-const PRIMARY_SYSTEM_ACCOUNTS = ['ajita', 'sanjay', 'centerstaff', 'admin_ajita', 'admin_sanjay', 'staff_centerstaff'];
+const PRIMARY_SYSTEM_ACCOUNTS = [
+  'ajita', 
+  'sanjay', 
+  'centerstaff', 
+  'weststaff', 
+  'superadmin', 
+  'admin_ajita', 
+  'admin_sanjay', 
+  'admin_superadmin', 
+  'staff_centerstaff', 
+  'staff_weststaff'
+];
 
 export function isUserDeleted(idOrUsername?: string): boolean {
   if (!idOrUsername) return false;
   const lower = idOrUsername.toLowerCase().trim();
-  // Never block the 3 required primary accounts
+  // Never block the required primary accounts
   if (PRIMARY_SYSTEM_ACCOUNTS.includes(lower)) return false;
   const deleted = getDeletedUsers();
   return deleted.some(d => d.toLowerCase().trim() === lower);
@@ -51,16 +69,16 @@ export function markUserDeleted(id: string, username?: string): void {
   }
 }
 
-
 export const defaultUsers: User[] = [
   { 
     id: 'admin_ajita', 
     username: 'Ajita', 
     role: 'admin', 
     name: 'Ajita', 
-    fullName: 'Ajita', 
+    fullName: 'Ajita (Dublin - East Admin)', 
     email: 'ajita@school.org', 
     phone: '', 
+    schoolId: 'school_dublin_east',
     isActive: true, 
     createdAt: new Date().toISOString(), 
     updatedAt: new Date().toISOString() 
@@ -70,9 +88,10 @@ export const defaultUsers: User[] = [
     username: 'Sanjay', 
     role: 'admin', 
     name: 'Sanjay', 
-    fullName: 'Sanjay', 
+    fullName: 'Sanjay (Dublin - West Admin)', 
     email: 'sanjay@school.org', 
     phone: '', 
+    schoolId: 'school_dublin_west',
     isActive: true, 
     createdAt: new Date().toISOString(), 
     updatedAt: new Date().toISOString() 
@@ -82,8 +101,34 @@ export const defaultUsers: User[] = [
     username: 'CenterStaff',
     role: 'staff',
     name: 'CenterStaff',
-    fullName: 'Center Staff',
+    fullName: 'Center Staff (Dublin - East)',
     email: 'centerstaff@school.org',
+    phone: '',
+    schoolId: 'school_dublin_east',
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'staff_weststaff',
+    username: 'WestStaff',
+    role: 'staff',
+    name: 'WestStaff',
+    fullName: 'Center Staff (Dublin - West)',
+    email: 'weststaff@school.org',
+    phone: '',
+    schoolId: 'school_dublin_west',
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'admin_superadmin',
+    username: 'SuperAdmin',
+    role: 'super_admin',
+    name: 'SuperAdmin',
+    fullName: 'Central Multi-School Administrator',
+    email: 'superadmin@school.org',
     phone: '',
     isActive: true,
     createdAt: new Date().toISOString(),
@@ -91,8 +136,8 @@ export const defaultUsers: User[] = [
   }
 ];
 
-export const defaultStudents: Student[] = TEN_STUDENTS;
-export const defaultAttendance: AttendanceRecord[] = INITIAL_ATTENDANCE_RECORDS;
+export const defaultStudents: Student[] = ALL_SEED_STUDENTS;
+export const defaultAttendance: AttendanceRecord[] = ALL_SEED_ATTENDANCE;
 
 // In-memory cache synced with Firestore and local fallback
 let cachedUsers: User[] = defaultUsers;
@@ -102,7 +147,7 @@ let initialized = false;
 
 export const db = {
   // Sync methods (reads from cache, writes to cache + Firestore)
-  getUsers: (): User[] => {
+  getUsers: (schoolId?: string): User[] => {
     const data = localStorage.getItem(USERS_KEY);
     if (data) {
       try {
@@ -114,12 +159,20 @@ export const db = {
         console.error('Error parsing cached users', e);
       }
     }
-    return cachedUsers;
+    if (!schoolId) return cachedUsers;
+    return cachedUsers.filter(u => !u.schoolId || u.schoolId === schoolId || u.role === 'super_admin');
   },
 
-  saveUsers: async (users: User[]) => {
+  saveUsers: async (users: User[], schoolId?: string) => {
     // Strip any sensitive fields before caching or persisting
-    const sanitizedUsers = users.map(({ password, ...rest }: any) => rest as User);
+    const targetSchoolId = schoolId || getActiveSchoolId();
+    const sanitizedUsers = users.map(({ password, ...rest }: any) => {
+      const u = rest as User;
+      return {
+        ...u,
+        schoolId: u.schoolId || (u.role === 'super_admin' ? undefined : targetSchoolId)
+      };
+    });
     cachedUsers = sanitizedUsers;
     localStorage.setItem(USERS_KEY, JSON.stringify(sanitizedUsers));
     try {
@@ -134,6 +187,7 @@ export const db = {
           email: u.email || '',
           phone: u.phone || '',
           role: u.role,
+          schoolId: u.schoolId || null,
           isActive: u.isActive !== undefined ? u.isActive : true,
           createdAt: u.createdAt || new Date().toISOString(),
           updatedAt: new Date().toISOString()
@@ -145,7 +199,7 @@ export const db = {
     }
   },
 
-  loadUsersFromFirestore: async (): Promise<User[]> => {
+  loadUsersFromFirestore: async (schoolId?: string): Promise<User[]> => {
     try {
       const usersSnap = await getDocs(collection(firestore, 'users'));
       const list: User[] = [];
@@ -163,39 +217,46 @@ export const db = {
         : defaultUsers.filter(u => !isUserDeleted(u.id) && !isUserDeleted(u.username));
       cachedUsers = nextUsers;
       localStorage.setItem(USERS_KEY, JSON.stringify(nextUsers));
-      return nextUsers;
+      if (!schoolId) return nextUsers;
+      return nextUsers.filter(u => !u.schoolId || u.schoolId === schoolId || u.role === 'super_admin');
     } catch (err) {
       console.warn('Firestore loadUsers error (using local users):', err);
-      return db.getUsers();
+      return db.getUsers(schoolId);
     }
   },
 
   saveUser: async (user: User) => {
     const { password, ...sanitizedUser } = user as any;
+    const targetSchoolId = sanitizedUser.schoolId || (sanitizedUser.role === 'super_admin' ? undefined : getActiveSchoolId());
+    const finalUser: User = {
+      ...sanitizedUser,
+      schoolId: targetSchoolId
+    };
     const current = db.getUsers();
-    const index = current.findIndex(u => u.id === sanitizedUser.id);
+    const index = current.findIndex(u => u.id === finalUser.id);
     let updated: User[];
     if (index >= 0) {
       updated = [...current];
-      updated[index] = sanitizedUser;
+      updated[index] = finalUser;
     } else {
-      updated = [...current, sanitizedUser];
+      updated = [...current, finalUser];
     }
     cachedUsers = updated;
     localStorage.setItem(USERS_KEY, JSON.stringify(updated));
 
     try {
-      const ref = doc(firestore, 'users', sanitizedUser.id);
+      const ref = doc(firestore, 'users', finalUser.id);
       await setDoc(ref, {
-        id: sanitizedUser.id,
-        username: sanitizedUser.username,
-        name: sanitizedUser.name || sanitizedUser.fullName || '',
-        fullName: sanitizedUser.fullName || sanitizedUser.name || '',
-        email: sanitizedUser.email || '',
-        phone: sanitizedUser.phone || '',
-        role: sanitizedUser.role,
-        isActive: sanitizedUser.isActive !== undefined ? sanitizedUser.isActive : true,
-        createdAt: sanitizedUser.createdAt || new Date().toISOString(),
+        id: finalUser.id,
+        username: finalUser.username,
+        name: finalUser.name || finalUser.fullName || '',
+        fullName: finalUser.fullName || finalUser.name || '',
+        email: finalUser.email || '',
+        phone: finalUser.phone || '',
+        role: finalUser.role,
+        schoolId: finalUser.schoolId || null,
+        isActive: finalUser.isActive !== undefined ? finalUser.isActive : true,
+        createdAt: finalUser.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }, { merge: true });
     } catch (err) {
@@ -242,9 +303,13 @@ export const db = {
     }
   },
 
-  loadStudentsFromFirestore: async (): Promise<Student[]> => {
+  loadStudentsFromFirestore: async (schoolId?: string): Promise<Student[]> => {
+    const targetSchoolId = schoolId || getActiveSchoolId();
     try {
-      const studentsSnap = await getDocs(collection(firestore, 'students'));
+      const q = targetSchoolId 
+        ? query(collection(firestore, 'students'), where('schoolId', '==', targetSchoolId))
+        : collection(firestore, 'students');
+      const studentsSnap = await getDocs(q);
       if (!studentsSnap.empty) {
         const list: Student[] = [];
         studentsSnap.forEach(docSnap => {
@@ -253,6 +318,7 @@ export const db = {
           const pPhone2 = data.parentPhone2 || data.parent?.phone2 || '';
           list.push({
             id: data.id || docSnap.id,
+            schoolId: data.schoolId || targetSchoolId,
             name: data.name || data.fullName || '',
             fullName: data.fullName || data.name || '',
             gradeLevel: data.gradeLevel || '',
@@ -274,18 +340,20 @@ export const db = {
             updatedAt: data.updatedAt
           });
         });
-        cachedStudents = list;
-        localStorage.setItem(STUDENTS_KEY, JSON.stringify(list));
+        const otherSchools = cachedStudents.filter(s => s.schoolId && s.schoolId !== targetSchoolId);
+        cachedStudents = [...otherSchools, ...list];
+        localStorage.setItem(STUDENTS_KEY, JSON.stringify(cachedStudents));
         return list;
       }
-      return db.getStudents();
+      return db.getStudents(targetSchoolId);
     } catch (err) {
       console.warn('Firestore loadStudents error:', err);
-      return db.getStudents();
+      return db.getStudents(targetSchoolId);
     }
   },
 
-  getStudents: (): Student[] => {
+  getStudents: (schoolId?: string): Student[] => {
+    const targetSchoolId = schoolId || getActiveSchoolId();
     const data = localStorage.getItem(STUDENTS_KEY);
     if (data) {
       try {
@@ -294,17 +362,30 @@ export const db = {
         console.error('Error parsing cached students', e);
       }
     }
-    return cachedStudents;
+    return targetSchoolId 
+      ? cachedStudents.filter(s => !s.schoolId || s.schoolId === targetSchoolId)
+      : cachedStudents;
   },
 
-  saveStudents: async (students: Student[]) => {
-    cachedStudents = students;
-    localStorage.setItem(STUDENTS_KEY, JSON.stringify(students));
+  saveStudents: async (students: Student[], schoolId?: string) => {
+    const targetSchoolId = schoolId || getActiveSchoolId();
+    const stampedStudents = students.map(s => ({
+      ...s,
+      schoolId: s.schoolId || targetSchoolId,
+      authorizedPickupDetails: s.authorizedPickupDetails?.map(p => ({
+        ...p,
+        schoolId: p.schoolId || targetSchoolId
+      }))
+    }));
+    const stampedIds = new Set(stampedStudents.map(s => s.id));
+    const retained = cachedStudents.filter(s => !stampedIds.has(s.id));
+    cachedStudents = [...retained, ...stampedStudents];
+    localStorage.setItem(STUDENTS_KEY, JSON.stringify(cachedStudents));
     try {
       // Chunk batches in sets of 200 for Firestore safety
       const chunkSize = 200;
-      for (let i = 0; i < students.length; i += chunkSize) {
-        const chunk = students.slice(i, i + chunkSize);
+      for (let i = 0; i < stampedStudents.length; i += chunkSize) {
+        const chunk = stampedStudents.slice(i, i + chunkSize);
         const batch = writeBatch(firestore);
         chunk.forEach(s => {
           const ref = doc(firestore, 'students', s.id);
@@ -313,6 +394,7 @@ export const db = {
           batch.set(ref, {
             id: s.id,
             userId: s.userId || null,
+            schoolId: s.schoolId,
             name: s.name || s.fullName || '',
             fullName: s.fullName || s.name || '',
             gradeLevel: s.gradeLevel || '',
@@ -342,43 +424,53 @@ export const db = {
   },
 
   saveStudent: async (student: Student) => {
-    const current = db.getStudents();
-    const index = current.findIndex(s => s.id === student.id);
+    const targetSchoolId = student.schoolId || getActiveSchoolId();
+    const finalStudent: Student = {
+      ...student,
+      schoolId: targetSchoolId,
+      authorizedPickupDetails: student.authorizedPickupDetails?.map(p => ({
+        ...p,
+        schoolId: p.schoolId || targetSchoolId
+      }))
+    };
+    const current = cachedStudents;
+    const index = current.findIndex(s => s.id === finalStudent.id);
     let updated: Student[];
     if (index >= 0) {
       updated = [...current];
-      updated[index] = student;
+      updated[index] = finalStudent;
     } else {
-      updated = [...current, student];
+      updated = [...current, finalStudent];
     }
     cachedStudents = updated;
     localStorage.setItem(STUDENTS_KEY, JSON.stringify(updated));
 
     try {
-      const ref = doc(firestore, 'students', student.id);
-      const pPhone = student.parentPhone || student.parent?.phone || '';
-      const pPhone2 = student.parentPhone2 || student.parent?.phone2 || '';
+      const ref = doc(firestore, 'students', finalStudent.id);
+      const pPhone = finalStudent.parentPhone || finalStudent.parent?.phone || '';
+      const pPhone2 = finalStudent.parentPhone2 || finalStudent.parent?.phone2 || '';
       await setDoc(ref, {
-        id: student.id,
-        userId: student.userId || null,
-        name: student.name || student.fullName || '',
-        fullName: student.fullName || student.name || '',
-        gradeLevel: student.gradeLevel || '',
-        parentName: student.parentName || student.parent?.name || '',
+        id: finalStudent.id,
+        userId: finalStudent.userId || null,
+        schoolId: finalStudent.schoolId,
+        name: finalStudent.name || finalStudent.fullName || '',
+        fullName: finalStudent.fullName || finalStudent.name || '',
+        gradeLevel: finalStudent.gradeLevel || '',
+        parentName: finalStudent.parentName || finalStudent.parent?.name || '',
         parentPhone: pPhone,
         parentPhone2: pPhone2,
-        parentEmail: student.parentEmail || student.parent?.email || '',
+        parentEmail: finalStudent.parentEmail || finalStudent.parent?.email || '',
         parent: {
-          name: student.parent?.name || student.parentName || '',
+          name: finalStudent.parent?.name || finalStudent.parentName || '',
           phone: pPhone,
           phone2: pPhone2,
-          email: student.parent?.email || student.parentEmail || ''
+          email: finalStudent.parent?.email || finalStudent.parentEmail || ''
         },
-        authorizedPickups: student.authorizedPickups || [],
-        authorizedPickupDetails: student.authorizedPickupDetails || [],
-        notes: student.notes || '',
-        isActive: student.isActive !== undefined ? student.isActive : true,
-        createdAt: student.createdAt || new Date().toISOString(),
+        authorizedPickups: finalStudent.authorizedPickups || [],
+        authorizedPickupDetails: finalStudent.authorizedPickupDetails || [],
+        notes: finalStudent.notes || '',
+        isActive: finalStudent.isActive !== undefined ? finalStudent.isActive : true,
+        createdAt: finalStudent.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }, { merge: true });
     } catch (err) {
@@ -404,29 +496,33 @@ export const db = {
     }
   },
 
-  loadAttendanceFromFirestore: async (): Promise<AttendanceRecord[]> => {
+  loadAttendanceFromFirestore: async (schoolId?: string): Promise<AttendanceRecord[]> => {
+    const targetSchoolId = schoolId || getActiveSchoolId();
     try {
-      const snap = await getDocs(collection(firestore, 'attendance'));
+      const q = targetSchoolId 
+        ? query(collection(firestore, 'attendance'), where('schoolId', '==', targetSchoolId))
+        : collection(firestore, 'attendance');
+      const snap = await getDocs(q);
       if (!snap.empty) {
         const list: AttendanceRecord[] = [];
         snap.forEach(docSnap => {
           list.push(docSnap.data() as AttendanceRecord);
         });
-        cachedAttendance = list;
-        localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(list));
+        const otherSchools = cachedAttendance.filter(a => a.schoolId && a.schoolId !== targetSchoolId);
+        cachedAttendance = [...otherSchools, ...list];
+        localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(cachedAttendance));
         return list;
       } else {
-        // If Firestore attendance is empty, seed initial attendance records
-        await db.saveAttendance(defaultAttendance);
-        return defaultAttendance;
+        return db.getAttendance(targetSchoolId);
       }
     } catch (err) {
       console.warn('Firestore loadAttendance error:', err);
-      return db.getAttendance();
+      return db.getAttendance(targetSchoolId);
     }
   },
 
-  getAttendance: (): AttendanceRecord[] => {
+  getAttendance: (schoolId?: string): AttendanceRecord[] => {
+    const targetSchoolId = schoolId || getActiveSchoolId();
     const data = localStorage.getItem(ATTENDANCE_KEY);
     if (data) {
       try {
@@ -442,7 +538,9 @@ export const db = {
     } else {
       cachedAttendance = defaultAttendance;
     }
-    return cachedAttendance;
+    return targetSchoolId
+      ? cachedAttendance.filter(a => !a.schoolId || a.schoolId === targetSchoolId)
+      : cachedAttendance;
   },
 
   importAttendanceRecords: async (newRecords: AttendanceRecord[]) => {
@@ -461,16 +559,24 @@ export const db = {
     return defaultAttendance;
   },
 
-  saveAttendance: async (records: AttendanceRecord[]) => {
-    cachedAttendance = records;
-    localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(records));
+  saveAttendance: async (records: AttendanceRecord[], schoolId?: string) => {
+    const targetSchoolId = schoolId || getActiveSchoolId();
+    const stamped = records.map(r => ({
+      ...r,
+      schoolId: r.schoolId || targetSchoolId
+    }));
+    const stampedIds = new Set(stamped.map(r => r.id));
+    const retained = cachedAttendance.filter(r => !stampedIds.has(r.id));
+    cachedAttendance = [...retained, ...stamped];
+    localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(cachedAttendance));
     try {
       const batch = writeBatch(firestore);
-      records.forEach(r => {
+      stamped.forEach(r => {
         const ref = doc(firestore, 'attendance', r.id);
         batch.set(ref, {
           id: r.id,
           studentId: r.studentId,
+          schoolId: r.schoolId,
           studentName: r.studentName || '',
           date: r.date,
           status: r.status || (r.checkOutTime ? 'checked_out' : 'checked_in'),
@@ -498,40 +604,46 @@ export const db = {
   },
 
   saveAttendanceRecord: async (record: AttendanceRecord) => {
-    const current = db.getAttendance();
-    const index = current.findIndex(r => r.id === record.id);
+    const targetSchoolId = record.schoolId || getActiveSchoolId();
+    const finalRecord: AttendanceRecord = {
+      ...record,
+      schoolId: targetSchoolId
+    };
+    const current = cachedAttendance;
+    const index = current.findIndex(r => r.id === finalRecord.id);
     let updated: AttendanceRecord[];
     if (index >= 0) {
       updated = [...current];
-      updated[index] = record;
+      updated[index] = finalRecord;
     } else {
-      updated = [...current, record];
+      updated = [...current, finalRecord];
     }
     cachedAttendance = updated;
     localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(updated));
 
     try {
-      const ref = doc(firestore, 'attendance', record.id);
+      const ref = doc(firestore, 'attendance', finalRecord.id);
       await setDoc(ref, {
-        id: record.id,
-        studentId: record.studentId,
-        studentName: record.studentName || '',
-        date: record.date,
-        status: record.status || (record.checkOutTime ? 'checked_out' : 'checked_in'),
-        checkInTime: record.checkInTime,
-        checkInStaffId: record.checkInStaffId || null,
-        checkInStaffName: record.checkInStaffName || null,
-        checkInMethod: record.checkInMethod || 'kiosk',
-        checkOutTime: record.checkOutTime || null,
-        checkOutStaffId: record.checkOutStaffId || null,
-        checkOutStaffName: record.checkOutStaffName || null,
-        pickupPersonId: record.pickupPersonId || null,
-        pickupPerson: record.pickupPerson || record.pickupPersonName || null,
-        pickupPersonName: record.pickupPersonName || record.pickupPerson || null,
-        smsNotificationSent: record.smsNotificationSent || false,
-        smsSentAt: record.smsSentAt || null,
-        notes: record.notes || '',
-        createdAt: record.createdAt || new Date().toISOString(),
+        id: finalRecord.id,
+        studentId: finalRecord.studentId,
+        schoolId: finalRecord.schoolId,
+        studentName: finalRecord.studentName || '',
+        date: finalRecord.date,
+        status: finalRecord.status || (finalRecord.checkOutTime ? 'checked_out' : 'checked_in'),
+        checkInTime: finalRecord.checkInTime,
+        checkInStaffId: finalRecord.checkInStaffId || null,
+        checkInStaffName: finalRecord.checkInStaffName || null,
+        checkInMethod: finalRecord.checkInMethod || 'kiosk',
+        checkOutTime: finalRecord.checkOutTime || null,
+        checkOutStaffId: finalRecord.checkOutStaffId || null,
+        checkOutStaffName: finalRecord.checkOutStaffName || null,
+        pickupPersonId: finalRecord.pickupPersonId || null,
+        pickupPerson: finalRecord.pickupPerson || finalRecord.pickupPersonName || null,
+        pickupPersonName: finalRecord.pickupPersonName || finalRecord.pickupPerson || null,
+        smsNotificationSent: finalRecord.smsNotificationSent || false,
+        smsSentAt: finalRecord.smsSentAt || null,
+        notes: finalRecord.notes || '',
+        createdAt: finalRecord.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }, { merge: true });
     } catch (err) {
@@ -567,11 +679,17 @@ export const db = {
     }
   },
 
-  clearAllAttendance: async () => {
-    cachedAttendance = [];
-    localStorage.removeItem(ATTENDANCE_KEY);
+  clearAllAttendance: async (schoolId?: string) => {
+    const targetSchoolId = schoolId || getActiveSchoolId();
+    cachedAttendance = targetSchoolId 
+      ? cachedAttendance.filter(a => a.schoolId && a.schoolId !== targetSchoolId)
+      : [];
+    localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(cachedAttendance));
     try {
-      const snap = await getDocs(collection(firestore, 'attendance'));
+      const q = targetSchoolId 
+        ? query(collection(firestore, 'attendance'), where('schoolId', '==', targetSchoolId))
+        : collection(firestore, 'attendance');
+      const snap = await getDocs(q);
       const batch = writeBatch(firestore);
       snap.forEach(d => {
         batch.delete(d.ref);
@@ -588,11 +706,11 @@ export const db = {
     return list;
   },
 
-  // Prune database and keep only the 10 standard students
+  // Prune database and keep only the standard seed students
   resetTo10Students: async () => {
     try {
       const studentsSnap = await getDocs(collection(firestore, 'students'));
-      const validIds = new Set(TEN_STUDENTS.map(s => s.id));
+      const validIds = new Set(ALL_SEED_STUDENTS.map(s => s.id));
       
       const batch = writeBatch(firestore);
       let excessCount = 0;
@@ -606,20 +724,20 @@ export const db = {
         await batch.commit();
       }
 
-      await db.saveStudents(TEN_STUDENTS);
-      cachedStudents = TEN_STUDENTS;
-      localStorage.setItem(STUDENTS_KEY, JSON.stringify(TEN_STUDENTS));
-      return TEN_STUDENTS;
+      await db.saveStudents(ALL_SEED_STUDENTS);
+      cachedStudents = ALL_SEED_STUDENTS;
+      localStorage.setItem(STUDENTS_KEY, JSON.stringify(ALL_SEED_STUDENTS));
+      return ALL_SEED_STUDENTS;
     } catch (e) {
       console.warn('resetTo10Students error:', e);
-      cachedStudents = TEN_STUDENTS;
-      localStorage.setItem(STUDENTS_KEY, JSON.stringify(TEN_STUDENTS));
-      return TEN_STUDENTS;
+      cachedStudents = ALL_SEED_STUDENTS;
+      localStorage.setItem(STUDENTS_KEY, JSON.stringify(ALL_SEED_STUDENTS));
+      return ALL_SEED_STUDENTS;
     }
   },
 
   // Listeners for real-time sync with Firebase
-  subscribeUsers: (callback: (users: User[]) => void) => {
+  subscribeUsers: (callback: (users: User[]) => void, schoolId?: string) => {
     try {
       const q = collection(firestore, 'users');
       return onSnapshot(q, async (snapshot) => {
@@ -635,25 +753,36 @@ export const db = {
 
           cachedUsers = list;
           localStorage.setItem(USERS_KEY, JSON.stringify(list));
-          callback(list);
+          if (!schoolId) {
+            callback(list);
+          } else {
+            callback(list.filter(u => !u.schoolId || u.schoolId === schoolId || u.role === 'super_admin'));
+          }
         } else {
           const activeDefaults = defaultUsers.filter(u => !isUserDeleted(u.id) && !isUserDeleted(u.username));
-          callback(activeDefaults);
+          if (!schoolId) {
+            callback(activeDefaults);
+          } else {
+            callback(activeDefaults.filter(u => !u.schoolId || u.schoolId === schoolId || u.role === 'super_admin'));
+          }
         }
       }, (err) => {
         console.warn('Users onSnapshot error:', err);
-        callback(db.getUsers());
+        callback(db.getUsers(schoolId));
       });
     } catch (e) {
       console.warn('Users subscribe failed:', e);
-      callback(db.getUsers());
+      callback(db.getUsers(schoolId));
       return () => {};
     }
   },
 
-  subscribeStudents: (callback: (students: Student[]) => void) => {
+  subscribeStudents: (callback: (students: Student[]) => void, schoolId?: string) => {
+    const targetSchoolId = schoolId || getActiveSchoolId();
     try {
-      const q = collection(firestore, 'students');
+      const q = targetSchoolId 
+        ? query(collection(firestore, 'students'), where('schoolId', '==', targetSchoolId))
+        : collection(firestore, 'students');
       return onSnapshot(q, (snapshot) => {
         if (!snapshot.empty) {
           const list: Student[] = [];
@@ -663,6 +792,7 @@ export const db = {
             const pPhone2 = data.parentPhone2 || data.parent?.phone2 || '';
             list.push({
               id: data.id || docSnap.id,
+              schoolId: data.schoolId || targetSchoolId,
               name: data.name || data.fullName || '',
               fullName: data.fullName || data.name || '',
               gradeLevel: data.gradeLevel || '',
@@ -684,45 +814,50 @@ export const db = {
               updatedAt: data.updatedAt
             });
           });
-          cachedStudents = list;
-          localStorage.setItem(STUDENTS_KEY, JSON.stringify(list));
+          const otherSchools = cachedStudents.filter(s => s.schoolId && s.schoolId !== targetSchoolId);
+          cachedStudents = [...otherSchools, ...list];
+          localStorage.setItem(STUDENTS_KEY, JSON.stringify(cachedStudents));
           callback(list);
         } else {
-          callback(db.getStudents());
+          callback(db.getStudents(targetSchoolId));
         }
       }, (err) => {
         console.warn('Students onSnapshot error:', err);
-        callback(db.getStudents());
+        callback(db.getStudents(targetSchoolId));
       });
     } catch (e) {
       console.warn('Students subscribe failed:', e);
-      callback(db.getStudents());
+      callback(db.getStudents(targetSchoolId));
       return () => {};
     }
   },
 
-  subscribeAttendance: (callback: (records: AttendanceRecord[]) => void) => {
+  subscribeAttendance: (callback: (records: AttendanceRecord[]) => void, schoolId?: string) => {
+    const targetSchoolId = schoolId || getActiveSchoolId();
     try {
-      const q = collection(firestore, 'attendance');
+      const q = targetSchoolId 
+        ? query(collection(firestore, 'attendance'), where('schoolId', '==', targetSchoolId))
+        : collection(firestore, 'attendance');
       return onSnapshot(q, (snapshot) => {
         if (!snapshot.empty) {
           const list: AttendanceRecord[] = [];
           snapshot.forEach(docSnap => {
             list.push(docSnap.data() as AttendanceRecord);
           });
-          cachedAttendance = list;
-          localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(list));
+          const otherSchools = cachedAttendance.filter(a => a.schoolId && a.schoolId !== targetSchoolId);
+          cachedAttendance = [...otherSchools, ...list];
+          localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(cachedAttendance));
           callback(list);
         } else {
-          callback(db.getAttendance());
+          callback(db.getAttendance(targetSchoolId));
         }
       }, (err) => {
         console.warn('Attendance onSnapshot error:', err);
-        callback(db.getAttendance());
+        callback(db.getAttendance(targetSchoolId));
       });
     } catch (e) {
       console.warn('Attendance subscribe failed:', e);
-      callback(db.getAttendance());
+      callback(db.getAttendance(targetSchoolId));
       return () => {};
     }
   },
@@ -764,7 +899,7 @@ export const db = {
     } else {
       try {
         const parsed = JSON.parse(localStudentsData);
-        // If parsed is dummy roster with <= 10 students, upgrade to the full actual students roster
+        // If parsed is dummy roster with <= 10 students, upgrade to the full multi-school roster
         if (!Array.isArray(parsed) || parsed.length <= 10 || parsed.some(s => s.name === 'Liam Smith' || s.name === 'Noah Johnson')) {
           localStorage.setItem(STUDENTS_KEY, JSON.stringify(defaultStudents));
           cachedStudents = defaultStudents;
@@ -832,6 +967,7 @@ export const db = {
             batch.set(pRef, {
               id: pId,
               studentId: s.id,
+              schoolId: s.schoolId || 'school_dublin_east',
               name: p.name,
               relationship: p.relationship || 'Guardian',
               phone: p.phone || s.parent.phone,
