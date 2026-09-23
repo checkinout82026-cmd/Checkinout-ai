@@ -14,8 +14,10 @@ import { AdminAttendance } from './components/AdminAttendance';
 import { StudentDashboard } from './components/StudentDashboard';
 import { KumonLogo } from './components/KumonLogo';
 import { Clock, LayoutDashboard, Lock, LogOut, Shield } from 'lucide-react';
+import { useSchoolBranding } from './lib/tenantContext';
 
 export default function App() {
+  const { subtitle, themeColor } = useSchoolBranding();
   const [user, setUser] = useState<User | null>(null);
   const [appMode, setAppMode] = useState<'kiosk' | 'dashboard'>('kiosk');
   const [activeTab, setActiveTab] = useState<string>('attendance');
@@ -141,7 +143,10 @@ export default function App() {
   // Student self-service mode (if student logs in)
   if (user.role === 'student') {
     return (
-      <div className="min-h-screen bg-[#2edaff] p-4 sm:p-8 flex flex-col justify-center">
+      <div 
+        className="min-h-screen p-4 sm:p-8 flex flex-col justify-center transition-colors duration-300"
+        style={{ backgroundColor: themeColor }}
+      >
         <Toaster position="top-center" />
         <StudentDashboard user={user} onComplete={handleLogout} />
       </div>
@@ -151,13 +156,16 @@ export default function App() {
   // MODE A: DEDICATED STUDENT CHECK-IN KIOSK (NO DASHBOARD/SIDEBAR CLUTTER)
   if (appMode === 'kiosk') {
     return (
-      <div className="min-h-screen bg-[#2edaff] flex flex-col text-[#3c3c3b] font-sans">
+      <div 
+        className="min-h-screen flex flex-col text-[#3c3c3b] font-sans transition-colors duration-300"
+        style={{ backgroundColor: themeColor }}
+      >
         <Toaster position="top-center" />
         
         {/* Kiosk Header Bar */}
         <header className="bg-white border-b border-[#e5e1da] shadow-sm px-6 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <KumonLogo variant="horizontal" size="md" subtitle="Dublin - East" />
+            <KumonLogo variant="horizontal" size="md" subtitle={subtitle} />
             <div className="hidden sm:flex items-center gap-1.5 ml-2 pl-3 border-l border-[#e5e1da] text-xs text-[#5c869e] font-semibold">
               <Clock size={13} />
               Student Check-In Kiosk

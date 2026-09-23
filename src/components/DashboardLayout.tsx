@@ -3,6 +3,8 @@ import { User } from '../types';
 import { KumonLogo } from './KumonLogo';
 import { LogOut, LayoutDashboard, Users, Clock, ShieldCheck, ArrowUpRight } from 'lucide-react';
 
+import { useSchoolBranding } from '../lib/tenantContext';
+
 interface LayoutProps {
   user: User;
   onLogout: () => void;
@@ -14,14 +16,24 @@ interface LayoutProps {
 
 export function DashboardLayout({ user, onLogout, children, activeTab, setActiveTab, onLaunchKiosk }: LayoutProps) {
   const isStaff = user.role === 'staff';
-  const isAdmin = user.role === 'admin';
+  const isAdmin = user.role === 'admin' || user.role === 'super_admin';
+  const { subtitle, themeColor, school } = useSchoolBranding();
 
   return (
-    <div className="min-h-screen bg-[#2edaff] flex flex-col md:flex-row text-[#3c3c3b] font-sans">
+    <div 
+      className="min-h-screen flex flex-col md:flex-row text-[#3c3c3b] font-sans transition-colors duration-300"
+      style={{ backgroundColor: themeColor }}
+    >
       {/* Sidebar */}
       <aside className="w-full md:w-64 bg-white border-r border-[#e5e1da] text-[#8c8a86] flex flex-col shrink-0">
         <div className="p-5 border-b border-[#e5e1da]">
-          <KumonLogo variant="horizontal" size="sm" subtitle="Dublin - East" />
+          <KumonLogo variant="horizontal" size="sm" subtitle={subtitle} />
+
+          {/* Subdomain School Info Badge */}
+          <div className="mt-2.5 px-2.5 py-1.5 bg-[#f8f6f3] border border-[#edeae6] rounded-xl text-[11px] text-[#6b6965]">
+            <span className="font-bold text-[#3c3c3b] block truncate">{school.name}</span>
+            <span className="text-[10px] text-[#8c8a86]">{school.address}</span>
+          </div>
 
           {/* User Profile + Top Sign Out Action */}
           <div className="mt-3.5 flex items-center justify-between gap-2 p-2 bg-[#f8f6f3] border border-[#edeae6] rounded-xl">

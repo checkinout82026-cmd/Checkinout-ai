@@ -32,6 +32,34 @@ The app runs on:
 http://localhost:3000
 ```
 
+### Multi-School Subdomain Testing (Option 2)
+
+This branch implements **Subdomain-Per-School Multi-Tenancy**. The active school is determined by the hostname subdomain.
+
+#### Option A: Query Parameter (Zero Config)
+For rapid local testing without altering DNS or hosts files:
+- **Dublin East**: `http://localhost:3000/?school=dublin-east`
+- **Dublin West**: `http://localhost:3000/?school=dublin-west`
+
+#### Option B: Local Subdomain Hostname
+Most modern browsers natively resolve `*.localhost` to `127.0.0.1`. If needed, add to `/etc/hosts`:
+```text
+127.0.0.1 dublin-east.localhost dublin-west.localhost
+```
+Then navigate to:
+- `http://dublin-east.localhost:3000`
+- `http://dublin-west.localhost:3000`
+
+Login attempts on a school subdomain with credentials registered to a different school will be rejected at the login boundary.
+
+## Testing
+
+Run the automated tenant isolation test suite:
+
+```bash
+npm test
+```
+
 ## Build and Check
 
 ```bash

@@ -1,4 +1,4 @@
-import { School } from '../types';
+import { School, User } from '../types';
 
 export const SEED_SCHOOLS: School[] = [
   {
@@ -7,6 +7,7 @@ export const SEED_SCHOOLS: School[] = [
     slug: 'dublin-east',
     subtitle: 'Dublin - East',
     themeColor: '#2edaff',
+    logoUrl: '/kumon_logo.webp',
     address: '7032 Dublin Blvd, Dublin, CA 94568',
     phone: '(925) 829-1000',
     isActive: true,
@@ -19,6 +20,7 @@ export const SEED_SCHOOLS: School[] = [
     slug: 'dublin-west',
     subtitle: 'Dublin - West',
     themeColor: '#10b981',
+    logoUrl: '/kumon_logo.webp',
     address: '4288 Dublin Blvd Ste 110, Dublin, CA 94568',
     phone: '(925) 829-2000',
     isActive: true,
@@ -29,26 +31,65 @@ export const SEED_SCHOOLS: School[] = [
 
 export const DEFAULT_SCHOOL_ID = 'school_dublin_east';
 
-let currentActiveSchoolId: string = DEFAULT_SCHOOL_ID;
+let simulatedHostname: string | null = null;
+let simulatedSearch: string | null = null;
 
-/**
- * Shared tenant context resolver.
- * Base branch stubs resolution to DEFAULT_SCHOOL_ID (School A).
- * Experiment branches override/extend this behavior.
- */
-export function getActiveSchoolId(): string {
-  if (typeof window !== 'undefined') {
-    const override = localStorage.getItem('activeSchoolId');
-    if (override) return override;
-  }
-  return currentActiveSchoolId;
+export function setSimulatedHostname(hostname: string | null, search: string | null = null): void {
+  simulatedHostname = hostname;
+  simulatedSearch = search;
 }
 
-export function setActiveSchoolId(schoolId: string): void {
-  currentActiveSchoolId = schoolId;
-  if (typeof window !== 'undefined') {
-    localStorage.setItem('activeSchoolId', schoolId);
+/**
+ * Extracts the tenant slug from the hostname or search params.
+ * e.g. dublin-east.localhost:3000 -> "dublin-east"
+ *      dublin-west.schoolapp.com -> "dublin-west"
+ *      localhost:3000?school=dublin-west -> "dublin-west"
+ */
+export function extractSubdomain(hostname: string, search = ''): string | null {
+  // Query param takes priority during dev or testing
+  if (search) {
+    const params = new URLSearchParams(search);
+    const paramSchool = params.get('school') || params.get('subdomain');
+    if (paramSchool) return paramSchool.toLowerCase();
   }
+
+  const cleanHost = hostname.split(':')[0].toLowerCase();
+  const parts = cleanHost.split('.');
+
+  // e.g. dublin-east.localhost or dublin-east.example.com
+  if (parts.length >= 2) {
+    const candidate = parts[0];
+    if (candidate !== 'www' && candidate !== 'localhost' && candidate !== '127') {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Resolves the School based on the request's subdomain.
+ */
+export function resolveSchoolFromHostname(hostname?: string, search?: string): School {
+  const host = hostname ?? simulatedHostname ?? (typeof window !== 'undefined' ? window.location.hostname : 'localhost');
+  const searchStr = search ?? simulatedSearch ?? (typeof window !== 'undefined' ? window.location.search : '');
+
+  const slug = extractSubdomain(host, searchStr);
+  if (slug) {
+    const matched = getSchoolBySlug(slug);
+    if (matched) return matched;
+  }
+
+  // Fallback to default school
+  return SEED_SCHOOLS[0];
+}
+
+export function getActiveSchool(): School {
+  return resolveSchoolFromHostname();
+}
+
+export function getActiveSchoolId(): string {
+  return getActiveSchool().id;
 }
 
 export function getAllSchools(): School[] {
@@ -63,4 +104,19 @@ export function getSchoolById(id?: string): School | undefined {
 export function getSchoolBySlug(slug?: string): School | undefined {
   if (!slug) return undefined;
   return SEED_SCHOOLS.find(s => s.slug.toLowerCase() === slug.toLowerCase());
+}
+
+/**
+ * Branding hook for Option 2:
+ * Provides the active school's brand assets dynamically by subdomain.
+ */
+export function useSchoolBranding() {
+  const school = getActiveSchool();
+  return {
+    school,
+    name: school.name,
+    subtitle: school.subtitle || school.name,
+    themeColor: school.themeColor || '#2edaff',
+    logoUrl: school.logoUrl || '/kumon_logo.webp'
+  };
 }

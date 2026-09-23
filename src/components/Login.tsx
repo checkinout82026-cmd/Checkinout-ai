@@ -4,12 +4,14 @@ import { User } from '../types';
 import { KumonLogo } from './KumonLogo';
 import toast from 'react-hot-toast';
 import { Shield, Lock, User as UserIcon, Loader2, Eye, EyeOff, ArrowRight, Clock, LayoutDashboard } from 'lucide-react';
+import { useSchoolBranding, getActiveSchool, getSchoolById } from '../lib/tenantContext';
 
 interface LoginProps {
   onLogin: (user: User, targetMode: 'kiosk' | 'dashboard') => void;
 }
 
 export function Login({ onLogin }: LoginProps) {
+  const { school, subtitle, themeColor } = useSchoolBranding();
   const [targetMode, setTargetMode] = useState<'kiosk' | 'dashboard'>('kiosk');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -32,12 +34,26 @@ export function Login({ onLogin }: LoginProps) {
     setLoading(true);
     try {
       const user = await signInWithEmail(cleanUsername, password);
+      const activeSchool = getActiveSchool();
+
+      // Subdomain-scoped login enforcement:
+      // School A user cannot log into School B's subdomain
+      if (user.schoolId && user.schoolId !== activeSchool.id && user.role !== 'super_admin') {
+        const userSchool = getSchoolById(user.schoolId);
+        throw new Error(
+          `This account is registered with ${userSchool?.name || 'another school'}. ` +
+          `Please access your school portal at http://${userSchool?.slug || 'school'}.localhost:3000`
+        );
+      }
+
       toast.success(`Welcome, ${user.name}! Opening ${targetMode === 'kiosk' ? 'Check-In Kiosk' : 'Management Dashboard'}`);
       onLogin(user, targetMode);
     } catch (err: any) {
       console.warn('Sign in attempt failed:', err?.code || err);
       let errorMsg = 'Invalid username or password';
-      if (err?.code === 'auth/too-many-requests') {
+      if (err?.message?.includes('registered with') || err?.message?.includes('Please access')) {
+        errorMsg = err.message;
+      } else if (err?.code === 'auth/too-many-requests') {
         errorMsg = 'Too many attempts. Please wait a moment and try again.';
       } else if (
         err?.code === 'auth/operation-not-allowed' ||
@@ -53,11 +69,14 @@ export function Login({ onLogin }: LoginProps) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#2edaff] text-[#3c3c3b] font-sans p-4">
+    <div 
+      className="min-h-screen flex items-center justify-center text-[#3c3c3b] font-sans p-4 transition-colors duration-300"
+      style={{ backgroundColor: themeColor }}
+    >
       <div className="w-full max-w-md bg-white p-7 sm:p-9 rounded-[36px] shadow-xl border border-[#e5e1da] animate-in fade-in zoom-in-95 duration-200">
         {/* Header Branding */}
         <div className="text-center mb-6 flex flex-col items-center">
-          <KumonLogo variant="vertical" size="lg" subtitle="Dublin - East" />
+          <KumonLogo variant="vertical" size="lg" subtitle={subtitle} />
         </div>
 
         {/* Portal Mode Selector (Kiosk vs Management Dashboard) */}
