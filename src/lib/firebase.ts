@@ -20,7 +20,11 @@ const allowProdInDev = import.meta.env?.VITE_ALLOW_PROD_FIREBASE === 'true';
 
 // Startup safety guardrail (MULTI_SCHOOL_PLAN.md Section 0)
 // Prevent accidental connection or cross-tenant modification to the live production database
-if (isDev && !isEmulator && !allowProdInDev) {
+export const isLocalOffline = isDev && !isEmulator && !allowProdInDev;
+
+if (isLocalOffline) {
+  console.info('⚡ [LOCAL OFFLINE DEV MODE]: Operating with instant in-memory & localStorage store. Production DB is fully isolated with zero cloud network latency.');
+} else if (isDev && !isEmulator) {
   const prodProjectId = config.projectId;
   const prodDatabaseId = config.firestoreDatabaseId;
   const currentProjectId = firebaseConfig.projectId;

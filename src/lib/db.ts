@@ -10,7 +10,7 @@ import {
   orderBy, 
   writeBatch 
 } from 'firebase/firestore';
-import { firestore } from './firebase';
+import { firestore, isLocalOffline } from './firebase';
 import { User, Student, AttendanceRecord, AuthorizedPickupPerson } from '../types';
 import { 
   ALL_SEED_STUDENTS, 
@@ -25,6 +25,11 @@ const USERS_KEY = 'checkin_users';
 const STUDENTS_KEY = 'checkin_students';
 const ATTENDANCE_KEY = 'checkin_attendance';
 const DELETED_USERS_KEY = 'checkin_deleted_users';
+
+const localDbEmitter = new EventTarget();
+function notifyLocalDbChange(event: 'users' | 'students' | 'attendance') {
+  localDbEmitter.dispatchEvent(new Event(event));
+}
 
 export function getDeletedUsers(): string[] {
   try {
@@ -175,6 +180,9 @@ export const db = {
     });
     cachedUsers = sanitizedUsers;
     localStorage.setItem(USERS_KEY, JSON.stringify(sanitizedUsers));
+    notifyLocalDbChange('users');
+    if (isLocalOffline) return;
+
     try {
       const batch = writeBatch(firestore);
       sanitizedUsers.forEach(u => {
@@ -200,6 +208,10 @@ export const db = {
   },
 
   loadUsersFromFirestore: async (schoolId?: string): Promise<User[]> => {
+    if (isLocalOffline) {
+      return db.getUsers(schoolId);
+    }
+
     try {
       const usersSnap = await getDocs(collection(firestore, 'users'));
       const list: User[] = [];
@@ -243,6 +255,8 @@ export const db = {
     }
     cachedUsers = updated;
     localStorage.setItem(USERS_KEY, JSON.stringify(updated));
+    notifyLocalDbChange('users');
+    if (isLocalOffline) return;
 
     try {
       const ref = doc(firestore, 'users', finalUser.id);
@@ -280,6 +294,8 @@ export const db = {
     const updated = allUsers.filter(u => u.id !== id);
     cachedUsers = updated;
     localStorage.setItem(USERS_KEY, JSON.stringify(updated));
+    notifyLocalDbChange('users');
+    if (isLocalOffline) return;
 
     try {
       await deleteDoc(doc(firestore, 'users', id));
@@ -305,6 +321,10 @@ export const db = {
 
   loadStudentsFromFirestore: async (schoolId?: string): Promise<Student[]> => {
     const targetSchoolId = schoolId || getActiveSchoolId();
+    if (isLocalOffline) {
+      return db.getStudents(targetSchoolId);
+    }
+
     try {
       const q = targetSchoolId 
         ? query(collection(firestore, 'students'), where('schoolId', '==', targetSchoolId))
@@ -325,7 +345,7 @@ export const db = {
             parent: data.parent || { 
               name: data.parentName || '', 
               phone: pPhone, 
-              phone2: pPhone2,
+              phone2: pPhone2, 
               email: data.parentEmail || '' 
             },
             parentName: data.parentName || data.parent?.name || '',
@@ -381,6 +401,9 @@ export const db = {
     const retained = cachedStudents.filter(s => !stampedIds.has(s.id));
     cachedStudents = [...retained, ...stampedStudents];
     localStorage.setItem(STUDENTS_KEY, JSON.stringify(cachedStudents));
+    notifyLocalDbChange('students');
+    if (isLocalOffline) return;
+
     try {
       // Chunk batches in sets of 200 for Firestore safety
       const chunkSize = 200;
@@ -444,6 +467,8 @@ export const db = {
     }
     cachedStudents = updated;
     localStorage.setItem(STUDENTS_KEY, JSON.stringify(updated));
+    notifyLocalDbChange('students');
+    if (isLocalOffline) return;
 
     try {
       const ref = doc(firestore, 'students', finalStudent.id);
@@ -482,6 +507,9 @@ export const db = {
     const current = db.getStudents().filter(s => s.id !== id);
     cachedStudents = current;
     localStorage.setItem(STUDENTS_KEY, JSON.stringify(current));
+    notifyLocalDbChange('students');
+    if (isLocalOffline) return;
+
     try {
       await deleteDoc(doc(firestore, 'students', id));
       const q = query(collection(firestore, 'students'), where('id', '==', id));
@@ -498,6 +526,10 @@ export const db = {
 
   loadAttendanceFromFirestore: async (schoolId?: string): Promise<AttendanceRecord[]> => {
     const targetSchoolId = schoolId || getActiveSchoolId();
+    if (isLocalOffline) {
+      return db.getAttendance(targetSchoolId);
+    }
+
     try {
       const q = targetSchoolId 
         ? query(collection(firestore, 'attendance'), where('schoolId', '==', targetSchoolId))
@@ -569,6 +601,9 @@ export const db = {
     const retained = cachedAttendance.filter(r => !stampedIds.has(r.id));
     cachedAttendance = [...retained, ...stamped];
     localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(cachedAttendance));
+    notifyLocalDbChange('attendance');
+    if (isLocalOffline) return;
+
     try {
       const batch = writeBatch(firestore);
       stamped.forEach(r => {
@@ -620,6 +655,8 @@ export const db = {
     }
     cachedAttendance = updated;
     localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(updated));
+    notifyLocalDbChange('attendance');
+    if (isLocalOffline) return;
 
     try {
       const ref = doc(firestore, 'attendance', finalRecord.id);
@@ -655,6 +692,9 @@ export const db = {
     const current = db.getAttendance().filter(r => r.id !== id);
     cachedAttendance = current;
     localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(current));
+    notifyLocalDbChange('attendance');
+    if (isLocalOffline) return;
+
     try {
       await deleteDoc(doc(firestore, 'attendance', id));
     } catch (err) {
@@ -668,6 +708,8 @@ export const db = {
     const current = db.getAttendance().filter(r => !idSet.has(r.id));
     cachedAttendance = current;
     localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(current));
+    notifyLocalDbChange('attendance');
+    if (isLocalOffline) return;
     try {
       const batch = writeBatch(firestore);
       ids.forEach(id => {
@@ -738,6 +780,17 @@ export const db = {
 
   // Listeners for real-time sync with Firebase
   subscribeUsers: (callback: (users: User[]) => void, schoolId?: string) => {
+    if (isLocalOffline) {
+      const getFiltered = () => !schoolId 
+        ? db.getUsers() 
+        : db.getUsers().filter(u => !u.schoolId || u.schoolId === schoolId || u.role === 'super_admin');
+      
+      callback(getFiltered());
+      const handler = () => callback(getFiltered());
+      localDbEmitter.addEventListener('users', handler);
+      return () => localDbEmitter.removeEventListener('users', handler);
+    }
+
     try {
       const q = collection(firestore, 'users');
       return onSnapshot(q, async (snapshot) => {
@@ -779,6 +832,13 @@ export const db = {
 
   subscribeStudents: (callback: (students: Student[]) => void, schoolId?: string) => {
     const targetSchoolId = schoolId || getActiveSchoolId();
+    if (isLocalOffline) {
+      callback(db.getStudents(targetSchoolId));
+      const handler = () => callback(db.getStudents(targetSchoolId));
+      localDbEmitter.addEventListener('students', handler);
+      return () => localDbEmitter.removeEventListener('students', handler);
+    }
+
     try {
       const q = targetSchoolId 
         ? query(collection(firestore, 'students'), where('schoolId', '==', targetSchoolId))
@@ -799,7 +859,7 @@ export const db = {
               parent: data.parent || { 
                 name: data.parentName || '', 
                 phone: pPhone, 
-                phone2: pPhone2,
+                phone2: pPhone2, 
                 email: data.parentEmail || '' 
               },
               parentName: data.parentName || data.parent?.name || '',
@@ -834,6 +894,13 @@ export const db = {
 
   subscribeAttendance: (callback: (records: AttendanceRecord[]) => void, schoolId?: string) => {
     const targetSchoolId = schoolId || getActiveSchoolId();
+    if (isLocalOffline) {
+      callback(db.getAttendance(targetSchoolId));
+      const handler = () => callback(db.getAttendance(targetSchoolId));
+      localDbEmitter.addEventListener('attendance', handler);
+      return () => localDbEmitter.removeEventListener('attendance', handler);
+    }
+
     try {
       const q = targetSchoolId 
         ? query(collection(firestore, 'attendance'), where('schoolId', '==', targetSchoolId))
@@ -915,6 +982,11 @@ export const db = {
     if (!localStorage.getItem(ATTENDANCE_KEY)) {
       localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(defaultAttendance));
       cachedAttendance = defaultAttendance;
+    }
+
+    // Fast path: skip remote Firestore network calls and initial seeding in local dev mode
+    if (isLocalOffline) {
+      return;
     }
 
     // Check & seed Firestore collections

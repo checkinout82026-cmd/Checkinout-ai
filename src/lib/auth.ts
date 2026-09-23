@@ -10,9 +10,10 @@ import {
   User as FirebaseUser
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
-import { auth, firestore } from './firebase';
+import { auth, firestore, isLocalOffline } from './firebase';
 import { User, Role } from '../types';
 import { db, isUserDeleted } from './db';
+import { getActiveSchoolId } from './tenantContext';
 
 export interface ConfiguredAccount {
   username: string;
@@ -149,6 +150,46 @@ export async function signInWithEmail(usernameOrEmail: string, password: string)
            acc.email.toLowerCase() === cleanInput.toLowerCase()
   );
 
+  // Fast offline path for local dev: authenticate instantly in 0ms without hitting Google Cloud
+  if (isLocalOffline) {
+    if (configuredMatch) {
+      if (configuredMatch.password !== password) {
+        throw new Error('Invalid username or password');
+      }
+      const localUsers = db.getUsers();
+      const existing = localUsers.find(u => 
+        u.username?.toLowerCase() === cleanInput.toLowerCase() ||
+        u.email?.toLowerCase() === cleanInput.toLowerCase()
+      );
+      const authenticatedUser: User = {
+        id: existing?.id || `admin_${configuredMatch.username.toLowerCase()}`,
+        username: configuredMatch.username,
+        name: configuredMatch.name,
+        fullName: configuredMatch.fullName,
+        email: configuredMatch.email,
+        phone: existing?.phone || '',
+        role: configuredMatch.role,
+        schoolId: existing?.schoolId || configuredMatch.schoolId,
+        isActive: true,
+        createdAt: existing?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      await db.saveUser(authenticatedUser);
+      return authenticatedUser;
+    }
+
+    const localUsers = db.getUsers();
+    const existing = localUsers.find(u => 
+      u.username?.toLowerCase() === cleanInput.toLowerCase() ||
+      u.email?.toLowerCase() === cleanInput.toLowerCase() ||
+      u.id?.toLowerCase() === cleanInput.toLowerCase()
+    );
+    if (existing) {
+      return existing;
+    }
+    throw new Error('Invalid username or password');
+  }
+
   // Load all users from Firestore / local storage to resolve email
   const allUsers = await db.loadUsersFromFirestore();
 
@@ -238,6 +279,30 @@ export async function signInWithEmail(usernameOrEmail: string, password: string)
 
 // Auto-provision configured default accounts in Firebase Auth and Firestore if possible
 export async function autoProvisionConfiguredAccounts(): Promise<void> {
+  if (isLocalOffline) {
+    for (const acc of CONFIGURED_ACCOUNTS) {
+      if (isUserDeleted(acc.username) || isUserDeleted(acc.email)) {
+        continue;
+      }
+      const docId = acc.role === 'admin' ? `admin_${acc.username.toLowerCase()}` : (acc.role === 'super_admin' ? `superadmin` : `staff_${acc.username.toLowerCase()}`);
+      const userDoc: User = {
+        id: docId,
+        username: acc.username,
+        name: acc.name,
+        fullName: acc.fullName,
+        email: acc.email,
+        phone: '',
+        role: acc.role,
+        schoolId: acc.schoolId,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      await db.saveUser(userDoc);
+    }
+    return;
+  }
+
   for (const acc of CONFIGURED_ACCOUNTS) {
     if (isUserDeleted(acc.username) || isUserDeleted(acc.email)) {
       continue;
@@ -301,6 +366,24 @@ export async function registerStaffOrAdmin(
   const username = customUsername?.trim() || cleanEmail.split('@')[0] || `user_${Date.now()}`;
 
   let uid = 'u_' + crypto.randomUUID().slice(0, 10);
+
+  if (isLocalOffline) {
+    const newUser: User = {
+      id: uid,
+      username,
+      name: cleanName,
+      fullName: cleanName,
+      email: cleanEmail,
+      phone: phone?.trim() || '',
+      role,
+      schoolId: getActiveSchoolId(),
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    await db.saveUser(newUser);
+    return newUser;
+  }
 
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, cleanPass);
@@ -368,12 +451,29 @@ export async function sendPasswordReset(email: string): Promise<void> {
 
 // Sign out from Firebase Auth
 export async function signOutFirebase(): Promise<void> {
+  if (isLocalOffline) {
+    localStorage.removeItem('activeUser');
+    return;
+  }
   await signOut(auth);
   localStorage.removeItem('activeUser');
 }
 
 // Subscribe to Firebase Auth state changes
 export function subscribeToAuthState(callback: (user: User | null, firebaseUser: FirebaseUser | null) => void) {
+  if (isLocalOffline) {
+    const raw = localStorage.getItem('activeUser');
+    if (raw) {
+      try {
+        callback(JSON.parse(raw), null);
+      } catch {
+        callback(null, null);
+      }
+    } else {
+      callback(null, null);
+    }
+    return () => {};
+  }
   return onAuthStateChanged(auth, async (fbUser) => {
     if (fbUser) {
       try {
