@@ -538,7 +538,12 @@ export const db = {
       if (!snap.empty) {
         const list: AttendanceRecord[] = [];
         snap.forEach(docSnap => {
-          list.push(docSnap.data() as AttendanceRecord);
+          const data = docSnap.data();
+          list.push({
+            ...data,
+            id: docSnap.id,
+            schoolId: data.schoolId || targetSchoolId
+          } as AttendanceRecord);
         });
         const otherSchools = cachedAttendance.filter(a => a.schoolId && a.schoolId !== targetSchoolId);
         cachedAttendance = [...otherSchools, ...list];
@@ -909,7 +914,12 @@ export const db = {
         if (!snapshot.empty) {
           const list: AttendanceRecord[] = [];
           snapshot.forEach(docSnap => {
-            list.push(docSnap.data() as AttendanceRecord);
+            const data = docSnap.data();
+            list.push({
+              ...data,
+              id: docSnap.id,
+              schoolId: data.schoolId || targetSchoolId
+            } as AttendanceRecord);
           });
           const otherSchools = cachedAttendance.filter(a => a.schoolId && a.schoolId !== targetSchoolId);
           cachedAttendance = [...otherSchools, ...list];

@@ -426,6 +426,201 @@ export const SCHOOL_B_STUDENTS: Student[] = [
     isActive: true,
     createdAt: "2026-08-01T08:00:00.000Z",
     updatedAt: "2026-08-01T08:00:00.000Z"
+  },
+  {
+    id: "20003",
+    schoolId: "school_dublin_west",
+    name: "Lucas Chen",
+    fullName: "Lucas Chen",
+    gradeLevel: "Kumon Math Level C",
+    parent: {
+      name: "David Chen",
+      phone: "555-0222",
+      email: "david.chen@example.com"
+    },
+    parentName: "David Chen",
+    parentPhone: "555-0222",
+    parentEmail: "david.chen@example.com",
+    authorizedPickups: ["David Chen", "Grace Chen"],
+    authorizedPickupDetails: [
+      {
+        name: "David Chen",
+        relationship: "Father",
+        phone: "555-0222",
+        schoolId: "school_dublin_west",
+        isPrimary: true
+      },
+      {
+        name: "Grace Chen",
+        relationship: "Mother",
+        phone: "555-0223",
+        schoolId: "school_dublin_west",
+        isPrimary: false
+      }
+    ],
+    notes: "West Campus - Math focus",
+    isActive: true,
+    createdAt: "2026-08-01T08:00:00.000Z",
+    updatedAt: "2026-08-01T08:00:00.000Z"
+  },
+  {
+    id: "20004",
+    schoolId: "school_dublin_west",
+    name: "Harper Rodriguez",
+    fullName: "Harper Rodriguez",
+    gradeLevel: "Kumon Reading Level B",
+    parent: {
+      name: "Sofia Rodriguez",
+      phone: "555-0232",
+      email: "sofia.rodriguez@example.com"
+    },
+    parentName: "Sofia Rodriguez",
+    parentPhone: "555-0232",
+    parentEmail: "sofia.rodriguez@example.com",
+    authorizedPickups: ["Sofia Rodriguez"],
+    authorizedPickupDetails: [
+      {
+        name: "Sofia Rodriguez",
+        relationship: "Mother",
+        phone: "555-0232",
+        schoolId: "school_dublin_west",
+        isPrimary: true
+      }
+    ],
+    notes: "West Campus Student",
+    isActive: true,
+    createdAt: "2026-08-01T08:00:00.000Z",
+    updatedAt: "2026-08-01T08:00:00.000Z"
+  },
+  {
+    id: "20005",
+    schoolId: "school_dublin_west",
+    name: "Ethan Kim",
+    fullName: "Ethan Kim",
+    gradeLevel: "Kumon Student",
+    parent: {
+      name: "Min Kim",
+      phone: "555-0242",
+      email: "min.kim@example.com"
+    },
+    parentName: "Min Kim",
+    parentPhone: "555-0242",
+    parentEmail: "min.kim@example.com",
+    authorizedPickups: ["Min Kim", "Jessica Kim"],
+    authorizedPickupDetails: [
+      {
+        name: "Min Kim",
+        relationship: "Father",
+        phone: "555-0242",
+        schoolId: "school_dublin_west",
+        isPrimary: true
+      },
+      {
+        name: "Jessica Kim",
+        relationship: "Mother",
+        phone: "555-0243",
+        schoolId: "school_dublin_west",
+        isPrimary: false
+      }
+    ],
+    notes: "West Campus - Mon/Thu schedule",
+    isActive: true,
+    createdAt: "2026-08-01T08:00:00.000Z",
+    updatedAt: "2026-08-01T08:00:00.000Z"
+  },
+  {
+    id: "20006",
+    schoolId: "school_dublin_west",
+    name: "Olivia Bennett",
+    fullName: "Olivia Bennett",
+    gradeLevel: "Kumon Math Level D",
+    parent: {
+      name: "James Bennett",
+      phone: "555-0252",
+      email: "james.bennett@example.com"
+    },
+    parentName: "James Bennett",
+    parentPhone: "555-0252",
+    parentEmail: "james.bennett@example.com",
+    authorizedPickups: ["James Bennett"],
+    authorizedPickupDetails: [
+      {
+        name: "James Bennett",
+        relationship: "Father",
+        phone: "555-0252",
+        schoolId: "school_dublin_west",
+        isPrimary: true
+      }
+    ],
+    notes: "West Campus Student",
+    isActive: true,
+    createdAt: "2026-08-01T08:00:00.000Z",
+    updatedAt: "2026-08-01T08:00:00.000Z"
+  },
+  {
+    id: "20007",
+    schoolId: "school_dublin_west",
+    name: "Aarav Sharma",
+    fullName: "Aarav Sharma",
+    gradeLevel: "Kumon Student",
+    parent: {
+      name: "Priya Sharma",
+      phone: "555-0262",
+      email: "priya.sharma@example.com"
+    },
+    parentName: "Priya Sharma",
+    parentPhone: "555-0262",
+    parentEmail: "priya.sharma@example.com",
+    authorizedPickups: ["Priya Sharma", "Rajesh Sharma"],
+    authorizedPickupDetails: [
+      {
+        name: "Priya Sharma",
+        relationship: "Mother",
+        phone: "555-0262",
+        schoolId: "school_dublin_west",
+        isPrimary: true
+      },
+      {
+        name: "Rajesh Sharma",
+        relationship: "Father",
+        phone: "555-0263",
+        schoolId: "school_dublin_west",
+        isPrimary: false
+      }
+    ],
+    notes: "West Campus - Math & Reading",
+    isActive: true,
+    createdAt: "2026-08-01T08:00:00.000Z",
+    updatedAt: "2026-08-01T08:00:00.000Z"
+  },
+  {
+    id: "20008",
+    schoolId: "school_dublin_west",
+    name: "Chloe Dubois",
+    fullName: "Chloe Dubois",
+    gradeLevel: "Kumon Reading Level C",
+    parent: {
+      name: "Marc Dubois",
+      phone: "555-0272",
+      email: "marc.dubois@example.com"
+    },
+    parentName: "Marc Dubois",
+    parentPhone: "555-0272",
+    parentEmail: "marc.dubois@example.com",
+    authorizedPickups: ["Marc Dubois"],
+    authorizedPickupDetails: [
+      {
+        name: "Marc Dubois",
+        relationship: "Father",
+        phone: "555-0272",
+        schoolId: "school_dublin_west",
+        isPrimary: true
+      }
+    ],
+    notes: "West Campus Student",
+    isActive: true,
+    createdAt: "2026-08-01T08:00:00.000Z",
+    updatedAt: "2026-08-01T08:00:00.000Z"
   }
 ];
 
@@ -473,6 +668,41 @@ export const SCHOOL_B_ATTENDANCE: AttendanceRecord[] = [
     smsNotificationSent: true,
     createdAt: "2026-08-29T16:00:00.000Z",
     updatedAt: "2026-08-29T16:45:00.000Z"
+  },
+  {
+    id: "att-west-2",
+    studentId: "20002",
+    schoolId: "school_dublin_west",
+    studentName: "Maya Lin",
+    date: "2026-08-29",
+    checkInTime: "2026-08-29T16:15:00.000Z",
+    checkOutTime: "2026-08-29T17:00:00.000Z",
+    checkInMethod: "student_self",
+    checkInStaffName: "West Kiosk",
+    checkOutStaffName: "West Kiosk",
+    pickupPerson: "Helen Lin",
+    pickupPersonName: "Helen Lin",
+    status: "checked_out",
+    smsNotificationSent: true,
+    createdAt: "2026-08-29T16:15:00.000Z",
+    updatedAt: "2026-08-29T17:00:00.000Z"
+  },
+  {
+    id: "att-west-3",
+    studentId: "20003",
+    schoolId: "school_dublin_west",
+    studentName: "Lucas Chen",
+    date: "2026-08-29",
+    checkInTime: "2026-08-29T16:30:00.000Z",
+    checkOutTime: null,
+    checkInMethod: "student_self",
+    checkInStaffName: "West Kiosk",
+    pickupPerson: "David Chen",
+    pickupPersonName: "David Chen",
+    status: "checked_in",
+    smsNotificationSent: true,
+    createdAt: "2026-08-29T16:30:00.000Z",
+    updatedAt: "2026-08-29T16:30:00.000Z"
   }
 ];
 
