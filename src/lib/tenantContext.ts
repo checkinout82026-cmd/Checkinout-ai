@@ -172,6 +172,18 @@ export function getSchoolBySlug(slug?: string): School | undefined {
 }
 
 /**
+ * Verifies whether a user is authorized to access a given school/campus portal.
+ * Super admins can access any school. Unscoped accounts (if any) can access for backwards compatibility.
+ * Campus-scoped staff and admins are strictly locked to their assigned school.
+ */
+export function isUserAuthorizedForSchool(user: { schoolId?: string; role?: string } | null | undefined, schoolId: string): boolean {
+  if (!user) return false;
+  if (user.role === 'super_admin') return true;
+  if (!user.schoolId) return true;
+  return user.schoolId === schoolId;
+}
+
+/**
  * Branding hook for Option 2:
  * Provides the active school's brand assets dynamically by subdomain or remembered selection.
  */

@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { signInWithEmail } from '../lib/auth';
+import { signInWithEmail, signOutFirebase } from '../lib/auth';
 import { User } from '../types';
 import { KumonLogo } from './KumonLogo';
 import toast from 'react-hot-toast';
 import { Shield, Lock, User as UserIcon, Loader2, Eye, EyeOff, ArrowRight, Clock, LayoutDashboard, Building2 } from 'lucide-react';
-import { useSchoolBranding, getActiveSchool, getSchoolById } from '../lib/tenantContext';
+import { useSchoolBranding, getActiveSchool, getSchoolById, isUserAuthorizedForSchool } from '../lib/tenantContext';
 import { CampusSelectionModal } from './CampusSelectionModal';
 
 interface LoginProps {
@@ -41,11 +41,12 @@ export function Login({ onLogin, onCampusChange }: LoginProps) {
 
       // Subdomain-scoped login enforcement:
       // School A user cannot log into School B's subdomain
-      if (user.schoolId && user.schoolId !== activeSchool.id && user.role !== 'super_admin') {
+      if (!isUserAuthorizedForSchool(user, activeSchool.id)) {
+        await signOutFirebase().catch(() => {});
         const userSchool = getSchoolById(user.schoolId);
+        const schoolName = userSchool?.name || 'another school';
         throw new Error(
-          `This account is registered with ${userSchool?.name || 'another school'}. ` +
-          `Please access your school portal at http://${userSchool?.slug || 'school'}.localhost:3000`
+          `This account is registered with ${schoolName}. Please switch your center campus or access the ${userSchool?.subtitle || 'appropriate'} portal.`
         );
       }
 
@@ -54,7 +55,11 @@ export function Login({ onLogin, onCampusChange }: LoginProps) {
     } catch (err: any) {
       console.warn('Sign in attempt failed:', err?.code || err);
       let errorMsg = 'Invalid username or password';
-      if (err?.message?.includes('registered with') || err?.message?.includes('Please access')) {
+      if (
+        err?.message?.includes('registered with') || 
+        err?.message?.includes('Please access') ||
+        err?.message?.includes('Please switch')
+      ) {
         errorMsg = err.message;
       } else if (err?.code === 'auth/too-many-requests') {
         errorMsg = 'Too many attempts. Please wait a moment and try again.';

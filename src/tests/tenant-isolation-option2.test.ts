@@ -11,8 +11,10 @@ import {
   getRememberedSchoolSlug,
   setRememberedSchoolSlug,
   clearRememberedSchool,
-  hasExplicitSubdomain
+  hasExplicitSubdomain,
+  isUserAuthorizedForSchool
 } from '../lib/tenantContext';
+import { signInWithEmail } from '../lib/auth';
 import { User, Student } from '../types';
 
 describe('Option 2: Separate Subdomain / Dashboard Per School', () => {
@@ -137,14 +139,7 @@ describe('Option 2: Separate Subdomain / Dashboard Per School', () => {
         schoolId: 'school_dublin_west'
       };
 
-      // Validation logic that is executed in Login.tsx
-      const isAllowedOnSubdomain = (user: User) => {
-        if (!user.schoolId) return true;
-        if (user.role === 'super_admin') return true;
-        return user.schoolId === activeSchool.id;
-      };
-
-      expect(isAllowedOnSubdomain(schoolBStaff)).toBe(false);
+      expect(isUserAuthorizedForSchool(schoolBStaff, activeSchool.id)).toBe(false);
 
       const schoolAStaff: User = {
         id: 'staff_east',
@@ -153,7 +148,47 @@ describe('Option 2: Separate Subdomain / Dashboard Per School', () => {
         name: 'Center Staff',
         schoolId: 'school_dublin_east'
       };
-      expect(isAllowedOnSubdomain(schoolAStaff)).toBe(true);
+      expect(isUserAuthorizedForSchool(schoolAStaff, activeSchool.id)).toBe(true);
+
+      const superAdmin: User = {
+        id: 'super_admin',
+        username: 'SuperAdmin',
+        role: 'super_admin',
+        name: 'Super Admin'
+      };
+      expect(isUserAuthorizedForSchool(superAdmin, activeSchool.id)).toBe(true);
+    });
+
+    it('rejects signInWithEmail attempt when staff credentials belong to another school', async () => {
+      // Set active campus to Dublin East
+      setSimulatedHostname('dublin-east.localhost:3000');
+
+      // Attempt login with Dublin West admin credentials (Sanjay) on Dublin East portal
+      await expect(signInWithEmail('Sanjay', 'Oh43016')).rejects.toThrow(
+        /This account is registered with/i
+      );
+
+      // Attempt login with Dublin West staff credentials (WestStaff) on Dublin East portal
+      await expect(signInWithEmail('WestStaff', 'Oh43017')).rejects.toThrow(
+        /This account is registered with/i
+      );
+
+      // Now switch active campus to Dublin West
+      setSimulatedHostname('dublin-west.localhost:3000');
+
+      // Attempt login with Dublin East admin credentials (Ajita) on Dublin West portal
+      await expect(signInWithEmail('Ajita', 'Oh43016')).rejects.toThrow(
+        /This account is registered with/i
+      );
+
+      // Attempt login with Dublin East staff credentials (CenterStaff) on Dublin West portal
+      await expect(signInWithEmail('CenterStaff', 'Oh43017')).rejects.toThrow(
+        /This account is registered with/i
+      );
+
+      // SuperAdmin is permitted on any school portal
+      const superAdminSession = await signInWithEmail('SuperAdmin', 'Oh43016');
+      expect(superAdminSession.role).toBe('super_admin');
     });
 
     it('provides distinct branding hooks per subdomain (theme color and subtitle)', () => {

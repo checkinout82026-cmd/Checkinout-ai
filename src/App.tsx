@@ -14,7 +14,7 @@ import { AdminAttendance } from './components/AdminAttendance';
 import { StudentDashboard } from './components/StudentDashboard';
 import { KumonLogo } from './components/KumonLogo';
 import { Clock, LayoutDashboard, Lock, LogOut, Shield } from 'lucide-react';
-import { useSchoolBranding, isSchoolSelectionRequired } from './lib/tenantContext';
+import { useSchoolBranding, isSchoolSelectionRequired, isUserAuthorizedForSchool, getActiveSchoolId } from './lib/tenantContext';
 import { CampusSelectionModal } from './components/CampusSelectionModal';
 
 export default function App() {
@@ -29,6 +29,17 @@ export default function App() {
     const handleSchoolChanged = () => {
       setTenantRevision(r => r + 1);
       setIsFirstVisitRequired(isSchoolSelectionRequired());
+
+      // If active user belongs to another campus, log them out immediately
+      const newActiveSchoolId = getActiveSchoolId();
+      setUser(currentUser => {
+        if (currentUser && !isUserAuthorizedForSchool(currentUser, newActiveSchoolId)) {
+          signOutFirebase().catch(() => {});
+          localStorage.removeItem('activeUser');
+          return null;
+        }
+        return currentUser;
+      });
     };
     window.addEventListener('school_changed', handleSchoolChanged);
     return () => window.removeEventListener('school_changed', handleSchoolChanged);
@@ -64,20 +75,36 @@ export default function App() {
     const storedMode = localStorage.getItem('appMode') as 'kiosk' | 'dashboard' | null;
     if (storedMode) setAppMode(storedMode);
 
+    const activeSchoolId = getActiveSchoolId();
+
     if (storedUser) {
       try {
         const u = JSON.parse(storedUser);
-        setUser(u);
-        if (u.role === 'admin') setActiveTab('attendance');
-        else if (u.role === 'staff') setActiveTab('checkedin');
+        if (!isUserAuthorizedForSchool(u, activeSchoolId)) {
+          localStorage.removeItem('activeUser');
+          signOutFirebase().catch(() => {});
+          setUser(null);
+        } else {
+          setUser(u);
+          if (u.role === 'admin') setActiveTab('attendance');
+          else if (u.role === 'staff') setActiveTab('checkedin');
+        }
       } catch (e) {
         console.warn('Failed to parse activeUser:', e);
       }
     }
 
     // Subscribe to Firebase Auth state
-    const unsubscribeAuth = subscribeToAuthState((appUser, fbUser) => {
+    const unsubscribeAuth = subscribeToAuthState(async (appUser, fbUser) => {
+      const currentActiveSchoolId = getActiveSchoolId();
       if (appUser && fbUser) {
+        if (!isUserAuthorizedForSchool(appUser, currentActiveSchoolId)) {
+          console.warn(`Blocked auth state update: user belongs to ${appUser.schoolId}, but active campus is ${currentActiveSchoolId}`);
+          await signOutFirebase().catch(() => {});
+          setUser(null);
+          localStorage.removeItem('activeUser');
+          return;
+        }
         setUser(appUser);
         localStorage.setItem('activeUser', JSON.stringify(appUser));
       } else {

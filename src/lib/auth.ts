@@ -13,7 +13,7 @@ import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, firestore, isLocalOffline } from './firebase';
 import { User, Role } from '../types';
 import { db, isUserDeleted } from './db';
-import { getActiveSchoolId } from './tenantContext';
+import { getActiveSchoolId, getSchoolById, isUserAuthorizedForSchool } from './tenantContext';
 
 export interface ConfiguredAccount {
   username: string;
@@ -152,6 +152,7 @@ export async function signInWithEmail(usernameOrEmail: string, password: string)
 
   // Fast offline path for local dev: authenticate instantly in 0ms without hitting Google Cloud
   if (isLocalOffline) {
+    const activeSchoolId = getActiveSchoolId();
     if (configuredMatch) {
       if (configuredMatch.password !== password) {
         throw new Error('Invalid username or password');
@@ -161,6 +162,14 @@ export async function signInWithEmail(usernameOrEmail: string, password: string)
         u.username?.toLowerCase() === cleanInput.toLowerCase() ||
         u.email?.toLowerCase() === cleanInput.toLowerCase()
       );
+      const schoolId = existing?.schoolId || configuredMatch.schoolId;
+      if (!isUserAuthorizedForSchool({ schoolId, role: configuredMatch.role }, activeSchoolId)) {
+        const userSchool = getSchoolById(schoolId);
+        const schoolName = userSchool?.name || 'another school';
+        throw new Error(
+          `This account is registered with ${schoolName}. Please switch your center campus or access the ${userSchool?.subtitle || 'appropriate'} portal.`
+        );
+      }
       const authenticatedUser: User = {
         id: existing?.id || `admin_${configuredMatch.username.toLowerCase()}`,
         username: configuredMatch.username,
@@ -169,7 +178,7 @@ export async function signInWithEmail(usernameOrEmail: string, password: string)
         email: configuredMatch.email,
         phone: existing?.phone || '',
         role: configuredMatch.role,
-        schoolId: existing?.schoolId || configuredMatch.schoolId,
+        schoolId,
         isActive: true,
         createdAt: existing?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -185,6 +194,13 @@ export async function signInWithEmail(usernameOrEmail: string, password: string)
       u.id?.toLowerCase() === cleanInput.toLowerCase()
     );
     if (existing) {
+      if (!isUserAuthorizedForSchool(existing, activeSchoolId)) {
+        const userSchool = getSchoolById(existing.schoolId);
+        const schoolName = userSchool?.name || 'another school';
+        throw new Error(
+          `This account is registered with ${schoolName}. Please switch your center campus or access the ${userSchool?.subtitle || 'appropriate'} portal.`
+        );
+      }
       return existing;
     }
     throw new Error('Invalid username or password');
@@ -200,6 +216,19 @@ export async function signInWithEmail(usernameOrEmail: string, password: string)
     u.id?.toLowerCase() === cleanInput.toLowerCase()
   );
 
+  const activeSchoolId = getActiveSchoolId();
+  const preliminarySchoolId = match?.schoolId || configuredMatch?.schoolId;
+  const preliminaryRole = match?.role || configuredMatch?.role;
+
+  // PRE-AUTH CHECK: If user is known to belong to another school, block BEFORE touching Firebase Auth
+  if (preliminarySchoolId && !isUserAuthorizedForSchool({ schoolId: preliminarySchoolId, role: preliminaryRole }, activeSchoolId)) {
+    const userSchool = getSchoolById(preliminarySchoolId);
+    const schoolName = userSchool?.name || 'another school';
+    throw new Error(
+      `This account is registered with ${schoolName}. Please switch your center campus or access the ${userSchool?.subtitle || 'appropriate'} portal.`
+    );
+  }
+
   let emailToUse = cleanInput;
   if (!emailToUse.includes('@')) {
     if (match && match.email) {
@@ -214,16 +243,35 @@ export async function signInWithEmail(usernameOrEmail: string, password: string)
   try {
     const userCredential = await signInWithEmailAndPassword(auth, emailToUse, password);
     const appUser = await getAppUserFromFirebase(userCredential.user);
-    return {
+    const resolvedUser: User = {
       ...appUser,
       username: match?.username || configuredMatch?.username || appUser.username,
       schoolId: match?.schoolId || configuredMatch?.schoolId || appUser.schoolId
     };
+
+    // POST-AUTH CHECK: In case user record was newly resolved from Firestore/Firebase
+    if (!isUserAuthorizedForSchool(resolvedUser, activeSchoolId)) {
+      await signOutFirebase().catch(() => {});
+      const userSchool = getSchoolById(resolvedUser.schoolId);
+      const schoolName = userSchool?.name || 'another school';
+      throw new Error(
+        `This account is registered with ${schoolName}. Please switch your center campus or access the ${userSchool?.subtitle || 'appropriate'} portal.`
+      );
+    }
+
+    return resolvedUser;
   } catch (authError: any) {
     console.warn('Firebase Auth error:', authError?.code);
 
     // If account is one of our configured accounts and password matches:
     if (configuredMatch && configuredMatch.password === password) {
+      if (!isUserAuthorizedForSchool(configuredMatch, activeSchoolId)) {
+        const userSchool = getSchoolById(configuredMatch.schoolId);
+        const schoolName = userSchool?.name || 'another school';
+        throw new Error(
+          `This account is registered with ${schoolName}. Please switch your center campus or access the ${userSchool?.subtitle || 'appropriate'} portal.`
+        );
+      }
       // Try to create the user in Firebase Auth so next time it logs in directly
       try {
         const createCred = await createUserWithEmailAndPassword(auth, emailToUse, password);
@@ -465,7 +513,14 @@ export function subscribeToAuthState(callback: (user: User | null, firebaseUser:
     const raw = localStorage.getItem('activeUser');
     if (raw) {
       try {
-        callback(JSON.parse(raw), null);
+        const u = JSON.parse(raw);
+        const activeSchoolId = getActiveSchoolId();
+        if (!isUserAuthorizedForSchool(u, activeSchoolId)) {
+          localStorage.removeItem('activeUser');
+          callback(null, null);
+        } else {
+          callback(u, null);
+        }
       } catch {
         callback(null, null);
       }
@@ -478,6 +533,14 @@ export function subscribeToAuthState(callback: (user: User | null, firebaseUser:
     if (fbUser) {
       try {
         const appUser = await getAppUserFromFirebase(fbUser);
+        const activeSchoolId = getActiveSchoolId();
+        if (!isUserAuthorizedForSchool(appUser, activeSchoolId)) {
+          console.warn(`Blocked auth state update: user ${appUser.username} belongs to ${appUser.schoolId}, but active campus is ${activeSchoolId}`);
+          await signOut(auth).catch(() => {});
+          localStorage.removeItem('activeUser');
+          callback(null, null);
+          return;
+        }
         callback(appUser, fbUser);
       } catch (err) {
         console.warn('Error resolving user from auth state:', err);
