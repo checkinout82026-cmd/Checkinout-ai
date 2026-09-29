@@ -67,20 +67,85 @@ export function extractSubdomain(hostname: string, search = ''): string | null {
   return null;
 }
 
+export const REMEMBERED_SCHOOL_KEY = 'checkin_selected_school';
+
+let memoryRememberedSchool: string | null = null;
+
+export function hasExplicitSubdomain(hostname?: string, search?: string): boolean {
+  const host = hostname ?? simulatedHostname ?? (typeof window !== 'undefined' ? window.location.hostname : 'localhost');
+  const searchStr = search ?? simulatedSearch ?? (typeof window !== 'undefined' ? window.location.search : '');
+  const slug = extractSubdomain(host, searchStr);
+  if (!slug) return false;
+  return getSchoolBySlug(slug) !== undefined;
+}
+
+export function getRememberedSchoolSlug(): string | null {
+  if (typeof window !== 'undefined' && typeof window.localStorage !== 'undefined') {
+    try {
+      const stored = localStorage.getItem(REMEMBERED_SCHOOL_KEY);
+      if (stored) return stored;
+    } catch {}
+  }
+  return memoryRememberedSchool;
+}
+
+export function setRememberedSchoolSlug(slug: string): void {
+  memoryRememberedSchool = slug;
+  if (typeof window !== 'undefined') {
+    try {
+      if (typeof window.localStorage !== 'undefined') {
+        localStorage.setItem(REMEMBERED_SCHOOL_KEY, slug);
+      }
+      window.dispatchEvent(new CustomEvent('school_changed', { detail: slug }));
+    } catch {}
+  }
+}
+
+export function clearRememberedSchool(): void {
+  memoryRememberedSchool = null;
+  if (typeof window !== 'undefined') {
+    try {
+      if (typeof window.localStorage !== 'undefined') {
+        localStorage.removeItem(REMEMBERED_SCHOOL_KEY);
+      }
+      window.dispatchEvent(new CustomEvent('school_changed', { detail: null }));
+    } catch {}
+  }
+}
+
+export function isSchoolSelectionRequired(hostname?: string, search?: string): boolean {
+  // If an explicit subdomain or query param exists (e.g. ?school=dublin-west), no modal is needed
+  if (hasExplicitSubdomain(hostname, search)) return false;
+
+  // If a valid school has already been remembered on this device, no modal is needed
+  const remembered = getRememberedSchoolSlug();
+  if (remembered && getSchoolBySlug(remembered)) return false;
+
+  return true;
+}
+
 /**
- * Resolves the School based on the request's subdomain.
+ * Resolves the School based on the request's subdomain or remembered selection.
  */
 export function resolveSchoolFromHostname(hostname?: string, search?: string): School {
   const host = hostname ?? simulatedHostname ?? (typeof window !== 'undefined' ? window.location.hostname : 'localhost');
   const searchStr = search ?? simulatedSearch ?? (typeof window !== 'undefined' ? window.location.search : '');
 
+  // 1. Explicit subdomain or query param takes highest precedence
   const slug = extractSubdomain(host, searchStr);
   if (slug) {
     const matched = getSchoolBySlug(slug);
     if (matched) return matched;
   }
 
-  // Fallback to default school
+  // 2. Remembered school selection in localStorage (e.g. for Render bare domains)
+  const remembered = getRememberedSchoolSlug();
+  if (remembered) {
+    const matched = getSchoolBySlug(remembered);
+    if (matched) return matched;
+  }
+
+  // 3. Fallback to default school
   return SEED_SCHOOLS[0];
 }
 
@@ -108,7 +173,7 @@ export function getSchoolBySlug(slug?: string): School | undefined {
 
 /**
  * Branding hook for Option 2:
- * Provides the active school's brand assets dynamically by subdomain.
+ * Provides the active school's brand assets dynamically by subdomain or remembered selection.
  */
 export function useSchoolBranding() {
   const school = getActiveSchool();
@@ -117,6 +182,7 @@ export function useSchoolBranding() {
     name: school.name,
     subtitle: school.subtitle || school.name,
     themeColor: school.themeColor || '#2edaff',
-    logoUrl: school.logoUrl || '/kumon_logo.webp'
+    logoUrl: school.logoUrl || '/kumon_logo.webp',
+    isExplicitSubdomain: hasExplicitSubdomain()
   };
 }

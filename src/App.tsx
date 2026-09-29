@@ -14,13 +14,25 @@ import { AdminAttendance } from './components/AdminAttendance';
 import { StudentDashboard } from './components/StudentDashboard';
 import { KumonLogo } from './components/KumonLogo';
 import { Clock, LayoutDashboard, Lock, LogOut, Shield } from 'lucide-react';
-import { useSchoolBranding } from './lib/tenantContext';
+import { useSchoolBranding, isSchoolSelectionRequired } from './lib/tenantContext';
+import { CampusSelectionModal } from './components/CampusSelectionModal';
 
 export default function App() {
+  const [, setTenantRevision] = useState(0);
   const { subtitle, themeColor } = useSchoolBranding();
+  const [isFirstVisitRequired, setIsFirstVisitRequired] = useState(() => isSchoolSelectionRequired());
   const [user, setUser] = useState<User | null>(null);
   const [appMode, setAppMode] = useState<'kiosk' | 'dashboard'>('kiosk');
   const [activeTab, setActiveTab] = useState<string>('attendance');
+
+  useEffect(() => {
+    const handleSchoolChanged = () => {
+      setTenantRevision(r => r + 1);
+      setIsFirstVisitRequired(isSchoolSelectionRequired());
+    };
+    window.addEventListener('school_changed', handleSchoolChanged);
+    return () => window.removeEventListener('school_changed', handleSchoolChanged);
+  }, []);
 
   useEffect(() => {
     // Sanitize any legacy cached passwords from localStorage
@@ -135,7 +147,20 @@ export default function App() {
     return (
       <>
         <Toaster position="top-center" />
-        <Login onLogin={handleLogin} />
+        {isFirstVisitRequired && (
+          <CampusSelectionModal
+            isOpen={true}
+            canDismiss={false}
+            onSelectSchool={() => {
+              setIsFirstVisitRequired(false);
+              setTenantRevision(r => r + 1);
+            }}
+          />
+        )}
+        <Login 
+          onLogin={handleLogin} 
+          onCampusChange={() => setTenantRevision(r => r + 1)}
+        />
       </>
     );
   }

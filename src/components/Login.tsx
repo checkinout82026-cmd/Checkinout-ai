@@ -3,16 +3,19 @@ import { signInWithEmail } from '../lib/auth';
 import { User } from '../types';
 import { KumonLogo } from './KumonLogo';
 import toast from 'react-hot-toast';
-import { Shield, Lock, User as UserIcon, Loader2, Eye, EyeOff, ArrowRight, Clock, LayoutDashboard } from 'lucide-react';
+import { Shield, Lock, User as UserIcon, Loader2, Eye, EyeOff, ArrowRight, Clock, LayoutDashboard, Building2 } from 'lucide-react';
 import { useSchoolBranding, getActiveSchool, getSchoolById } from '../lib/tenantContext';
+import { CampusSelectionModal } from './CampusSelectionModal';
 
 interface LoginProps {
   onLogin: (user: User, targetMode: 'kiosk' | 'dashboard') => void;
+  onCampusChange?: () => void;
 }
 
-export function Login({ onLogin }: LoginProps) {
-  const { school, subtitle, themeColor } = useSchoolBranding();
+export function Login({ onLogin, onCampusChange }: LoginProps) {
+  const { school, subtitle, themeColor, isExplicitSubdomain } = useSchoolBranding();
   const [targetMode, setTargetMode] = useState<'kiosk' | 'dashboard'>('kiosk');
+  const [showCampusModal, setShowCampusModal] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -205,8 +208,34 @@ export function Login({ onLogin }: LoginProps) {
               </>
             )}
           </button>
+
+          {/* Bare Domain Campus Switcher (Enabled when not locked to a specific subdomain) */}
+          {!isExplicitSubdomain && (
+            <div className="mt-5 pt-4 border-t border-[#e5e1da] text-center">
+              <button
+                type="button"
+                onClick={() => setShowCampusModal(true)}
+                className="text-xs text-[#5c869e] hover:text-[#3c3c3b] font-medium inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+              >
+                <Building2 size={13} className="text-[#5c869e]" />
+                <span>Campus: <strong>{subtitle}</strong></span>
+                <span className="text-[11px] underline ml-1 text-[#8c8a86] hover:text-[#3c3c3b]">(Change)</span>
+              </button>
+            </div>
+          )}
         </form>
       </div>
+
+      {/* Campus Selection Modal */}
+      <CampusSelectionModal
+        isOpen={showCampusModal}
+        canDismiss={true}
+        onClose={() => setShowCampusModal(false)}
+        onSelectSchool={() => {
+          setShowCampusModal(false);
+          if (onCampusChange) onCampusChange();
+        }}
+      />
     </div>
   );
 }

@@ -6,13 +6,22 @@ import {
   setSimulatedHostname, 
   getActiveSchoolId, 
   getActiveSchool,
-  useSchoolBranding
+  useSchoolBranding,
+  isSchoolSelectionRequired,
+  getRememberedSchoolSlug,
+  setRememberedSchoolSlug,
+  clearRememberedSchool,
+  hasExplicitSubdomain
 } from '../lib/tenantContext';
 import { User, Student } from '../types';
 
 describe('Option 2: Separate Subdomain / Dashboard Per School', () => {
   beforeEach(() => {
     setSimulatedHostname(null);
+    clearRememberedSchool();
+    if (typeof localStorage !== 'undefined') {
+      localStorage.clear();
+    }
   });
 
   describe('Subdomain Parsing & Resolution', () => {
@@ -161,4 +170,68 @@ describe('Option 2: Separate Subdomain / Dashboard Per School', () => {
       expect(westBranding.themeColor).toBe('#10b981');
     });
   });
+
+  describe('First-Time Visit Campus Selection & Remembering (Bare Domain / Render)', () => {
+    it('requires campus selection on bare domain when no school is remembered', () => {
+      // Bare domain (e.g. checkin-app.onrender.com or localhost:3000)
+      expect(isSchoolSelectionRequired('checkin-app.onrender.com')).toBe(true);
+      expect(isSchoolSelectionRequired('localhost:3000')).toBe(true);
+      expect(hasExplicitSubdomain('checkin-app.onrender.com')).toBe(false);
+    });
+
+    it('does not require selection when explicit subdomain or query param is provided', () => {
+      // Explicit subdomain
+      expect(isSchoolSelectionRequired('dublin-west.checkin-app.com')).toBe(false);
+      expect(hasExplicitSubdomain('dublin-west.checkin-app.com')).toBe(true);
+
+      // Query param override
+      expect(isSchoolSelectionRequired('checkin-app.onrender.com', '?school=dublin-west')).toBe(false);
+      expect(hasExplicitSubdomain('checkin-app.onrender.com', '?school=dublin-west')).toBe(true);
+    });
+
+    it('persists selected campus and steers subsequent requests on bare domain', () => {
+      expect(getRememberedSchoolSlug()).toBeNull();
+
+      // User selects Dublin West
+      setRememberedSchoolSlug('dublin-west');
+      expect(getRememberedSchoolSlug()).toBe('dublin-west');
+
+      // Now selection is no longer required on bare domain
+      expect(isSchoolSelectionRequired('checkin-app.onrender.com')).toBe(false);
+
+      // Bare domain resolves to remembered Dublin West
+      const resolved = resolveSchoolFromHostname('checkin-app.onrender.com');
+      expect(resolved.id).toBe('school_dublin_west');
+      expect(resolved.name).toContain('Dublin - West');
+    });
+
+    it('prioritizes explicit subdomains and query params over remembered selection', () => {
+      // Device remembered Dublin West
+      setRememberedSchoolSlug('dublin-west');
+
+      // But URL has explicit subdomain for Dublin East
+      const fromSubdomain = resolveSchoolFromHostname('dublin-east.checkin-app.com');
+      expect(fromSubdomain.id).toBe('school_dublin_east');
+
+      // Or URL has explicit query param for Dublin East
+      const fromQueryParam = resolveSchoolFromHostname('checkin-app.onrender.com', '?school=dublin-east');
+      expect(fromQueryParam.id).toBe('school_dublin_east');
+    });
+
+    it('allows clearing or changing remembered school', () => {
+      setRememberedSchoolSlug('dublin-west');
+      expect(getRememberedSchoolSlug()).toBe('dublin-west');
+
+      // Change to Dublin East
+      setRememberedSchoolSlug('dublin-east');
+      expect(getRememberedSchoolSlug()).toBe('dublin-east');
+      expect(resolveSchoolFromHostname('checkin-app.onrender.com').id).toBe('school_dublin_east');
+
+      // Clear selection
+      clearRememberedSchool();
+      expect(getRememberedSchoolSlug()).toBeNull();
+      expect(isSchoolSelectionRequired('checkin-app.onrender.com')).toBe(true);
+    });
+  });
 });
+
