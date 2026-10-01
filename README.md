@@ -4,7 +4,8 @@ MVP student check-in/check-out system built with Vite, React, TypeScript, Tailwi
 
 ## Documentation
 
-The complete documentation is in [docs/](./docs/README.md).
+- **[Multi-School Architecture & Implementation Overview](./MULTI_SCHOOL_OVERVIEW.md)** *(Comprehensive Guide to Tenant Partitioning, Render Deployment, and Auth Isolation)*
+- The complete baseline documentation is in [docs/](./docs/README.md).
 
 Start here:
 
