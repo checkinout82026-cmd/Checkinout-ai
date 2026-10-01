@@ -21,6 +21,7 @@ export interface ConfiguredAccount {
   fullName: string;
   password: string;
   email: string;
+  schoolId?: string;
 }
 
 export const CONFIGURED_ACCOUNTS: ConfiguredAccount[] = [
@@ -28,25 +29,36 @@ export const CONFIGURED_ACCOUNTS: ConfiguredAccount[] = [
     username: 'Ajita',
     role: 'admin',
     name: 'Ajita',
-    fullName: 'Ajita',
+    fullName: 'Ajita (Dublin - East Admin)',
     password: 'Oh43016',
-    email: 'ajita@school.org'
+    email: 'ajita@school.org',
+    schoolId: 'school_dublin_east'
   },
   {
     username: 'Sanjay',
     role: 'admin',
     name: 'Sanjay',
-    fullName: 'Sanjay',
+    fullName: 'Sanjay (Dublin - West Admin)',
     password: 'Oh43016',
-    email: 'sanjay@school.org'
+    email: 'sanjay@school.org',
+    schoolId: 'school_dublin_west'
   },
   {
     username: 'CenterStaff',
     role: 'staff',
     name: 'CenterStaff',
-    fullName: 'Center Staff',
+    fullName: 'Center Staff (Dublin - East)',
     password: 'Oh43017',
-    email: 'centerstaff@school.org'
+    email: 'centerstaff@school.org',
+    schoolId: 'school_dublin_east'
+  },
+  {
+    username: 'SuperAdmin',
+    role: 'super_admin',
+    name: 'SuperAdmin',
+    fullName: 'Central Multi-School Administrator',
+    password: 'Oh43016',
+    email: 'superadmin@school.org'
   }
 ];
 
@@ -136,6 +148,12 @@ export async function signInWithEmail(usernameOrEmail: string, password: string)
     u.id?.toLowerCase() === cleanInput.toLowerCase()
   );
 
+  const candidateSchoolId = match?.schoolId || configuredMatch?.schoolId;
+  const candidateRole = match?.role || configuredMatch?.role;
+  if (candidateSchoolId && candidateSchoolId !== 'school_dublin_east' && candidateRole !== 'super_admin') {
+    throw new Error('This account belongs to Dublin - West and cannot sign into the Dublin - East portal.');
+  }
+
   let emailToUse = cleanInput;
   if (!emailToUse.includes('@')) {
     if (match && match.email) {
@@ -150,15 +168,26 @@ export async function signInWithEmail(usernameOrEmail: string, password: string)
   try {
     const userCredential = await signInWithEmailAndPassword(auth, emailToUse, password);
     const appUser = await getAppUserFromFirebase(userCredential.user);
-    return {
+    const resolvedUser: User = {
       ...appUser,
-      username: match?.username || configuredMatch?.username || appUser.username
+      username: match?.username || configuredMatch?.username || appUser.username,
+      schoolId: match?.schoolId || configuredMatch?.schoolId || appUser.schoolId || 'school_dublin_east'
     };
+
+    if (resolvedUser.schoolId && resolvedUser.schoolId !== 'school_dublin_east' && resolvedUser.role !== 'super_admin') {
+      await signOut(auth).catch(() => {});
+      throw new Error('This account belongs to Dublin - West and cannot sign into the Dublin - East portal.');
+    }
+
+    return resolvedUser;
   } catch (authError: any) {
     console.warn('Firebase Auth error:', authError?.code);
 
     // If account is one of our configured accounts and password matches:
     if (configuredMatch && configuredMatch.password === password) {
+      if (configuredMatch.schoolId && configuredMatch.schoolId !== 'school_dublin_east' && configuredMatch.role !== 'super_admin') {
+        throw new Error('This account belongs to Dublin - West and cannot sign into the Dublin - East portal.');
+      }
       // Try to create the user in Firebase Auth so next time it logs in directly
       try {
         const createCred = await createUserWithEmailAndPassword(auth, emailToUse, password);
@@ -167,7 +196,8 @@ export async function signInWithEmail(usernameOrEmail: string, password: string)
         return {
           ...appUser,
           username: configuredMatch.username,
-          role: configuredMatch.role
+          role: configuredMatch.role,
+          schoolId: configuredMatch.schoolId || 'school_dublin_east'
         };
       } catch (createErr: any) {
         console.warn('Firebase auto-create during login attempt notice:', createErr?.code);
@@ -182,6 +212,7 @@ export async function signInWithEmail(usernameOrEmail: string, password: string)
         email: configuredMatch.email,
         phone: '',
         role: configuredMatch.role,
+        schoolId: configuredMatch.schoolId || 'school_dublin_east',
         isActive: true,
         createdAt: match?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -350,6 +381,13 @@ export function subscribeToAuthState(callback: (user: User | null, firebaseUser:
     if (fbUser) {
       try {
         const appUser = await getAppUserFromFirebase(fbUser);
+        if (appUser.schoolId && appUser.schoolId !== 'school_dublin_east' && appUser.role !== 'super_admin') {
+          console.warn(`Blocked auth state update: user ${appUser.username} belongs to ${appUser.schoolId}, but portal is Dublin East`);
+          await signOut(auth).catch(() => {});
+          localStorage.removeItem('activeUser');
+          callback(null, null);
+          return;
+        }
         callback(appUser, fbUser);
       } catch (err) {
         console.warn('Error resolving user from auth state:', err);

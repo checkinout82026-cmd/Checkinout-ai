@@ -53,17 +53,29 @@ export default function App() {
     if (storedUser) {
       try {
         const u = JSON.parse(storedUser);
-        setUser(u);
-        if (u.role === 'admin') setActiveTab('attendance');
-        else if (u.role === 'staff') setActiveTab('checkedin');
+        if (u.schoolId && u.schoolId !== 'school_dublin_east' && u.role !== 'super_admin') {
+          localStorage.removeItem('activeUser');
+          signOutFirebase().catch(() => {});
+          setUser(null);
+        } else {
+          setUser(u);
+          if (u.role === 'admin') setActiveTab('attendance');
+          else if (u.role === 'staff') setActiveTab('checkedin');
+        }
       } catch (e) {
         console.warn('Failed to parse activeUser:', e);
       }
     }
 
     // Subscribe to Firebase Auth state
-    const unsubscribeAuth = subscribeToAuthState((appUser, fbUser) => {
+    const unsubscribeAuth = subscribeToAuthState(async (appUser, fbUser) => {
       if (appUser && fbUser) {
+        if (appUser.schoolId && appUser.schoolId !== 'school_dublin_east' && appUser.role !== 'super_admin') {
+          await signOutFirebase().catch(() => {});
+          setUser(null);
+          localStorage.removeItem('activeUser');
+          return;
+        }
         setUser(appUser);
         localStorage.setItem('activeUser', JSON.stringify(appUser));
       } else {

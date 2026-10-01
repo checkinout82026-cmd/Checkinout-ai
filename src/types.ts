@@ -1,4 +1,4 @@
-export type Role = 'staff' | 'admin' | 'student';
+export type Role = 'staff' | 'admin' | 'student' | 'super_admin';
 
 export type AttendanceStatus = 'checked_in' | 'checked_out' | 'absent' | 'excused';
 
@@ -10,6 +10,7 @@ export interface User {
   fullName?: string;
   email?: string;
   phone?: string;
+  schoolId?: string;
   isActive?: boolean;
   createdAt?: string;
   updatedAt?: string;
@@ -30,6 +31,7 @@ export interface AuthorizedPickupPerson {
   phone?: string;
   isPrimary?: boolean;
   photoUrl?: string;
+  schoolId?: string;
   createdAt?: string;
 }
 
@@ -39,6 +41,7 @@ export interface Student {
   name: string;
   fullName?: string;
   gradeLevel?: string;
+  schoolId?: string;
   parent: Parent;
   parentName?: string;
   parentPhone?: string;
@@ -56,6 +59,7 @@ export interface AttendanceRecord {
   id: string;
   studentId: string;
   studentName?: string;
+  schoolId?: string;
   date: string; // YYYY-MM-DD
   status?: AttendanceStatus;
   checkInTime: string | null; // ISO string
