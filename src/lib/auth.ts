@@ -13,7 +13,7 @@ import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, firestore, isLocalOffline } from './firebase';
 import { User, Role } from '../types';
 import { db, isUserDeleted } from './db';
-import { getActiveSchoolId, getSchoolById, isUserAuthorizedForSchool } from './tenantContext';
+import { getActiveSchoolId, getSchoolById, isUserAuthorizedForSchool, parseAppRoute, hasExplicitSubdomain } from './tenantContext';
 
 export interface ConfiguredAccount {
   username: string;
@@ -61,6 +61,42 @@ export const CONFIGURED_ACCOUNTS: ConfiguredAccount[] = [
     password: 'Oh43017',
     email: 'weststaff@school.org',
     schoolId: 'school_dublin_west'
+  },
+  {
+    username: 'PleasantonAdmin',
+    role: 'admin',
+    name: 'PleasantonAdmin',
+    fullName: 'Pleasanton Admin',
+    password: 'Oh43016',
+    email: 'pleasantonadmin@school.org',
+    schoolId: 'school_pleasanton'
+  },
+  {
+    username: 'PleasantonStaff',
+    role: 'staff',
+    name: 'PleasantonStaff',
+    fullName: 'Center Staff (Pleasanton)',
+    password: 'Oh43017',
+    email: 'pleasantonstaff@school.org',
+    schoolId: 'school_pleasanton'
+  },
+  {
+    username: 'SanRamonAdmin',
+    role: 'admin',
+    name: 'SanRamonAdmin',
+    fullName: 'San Ramon Admin',
+    password: 'Oh43016',
+    email: 'sanramonadmin@school.org',
+    schoolId: 'school_san_ramon'
+  },
+  {
+    username: 'SanRamonStaff',
+    role: 'staff',
+    name: 'SanRamonStaff',
+    fullName: 'Center Staff (San Ramon)',
+    password: 'Oh43017',
+    email: 'sanramonstaff@school.org',
+    schoolId: 'school_san_ramon'
   },
   {
     username: 'SuperAdmin',
@@ -135,7 +171,11 @@ export async function getAppUserFromFirebase(firebaseUser: FirebaseUser): Promis
 }
 
 // Sign in with Username or Email via Firebase Auth
-export async function signInWithEmail(usernameOrEmail: string, password: string): Promise<User> {
+export async function signInWithEmail(
+  usernameOrEmail: string, 
+  password: string, 
+  targetSchoolId?: string | null
+): Promise<User> {
   const cleanInput = usernameOrEmail.trim();
   if (!cleanInput) {
     throw new Error('Please enter your username');
@@ -143,6 +183,10 @@ export async function signInWithEmail(usernameOrEmail: string, password: string)
   if (!password) {
     throw new Error('Please enter your password');
   }
+
+  const effectiveTargetSchool = targetSchoolId !== undefined
+    ? targetSchoolId
+    : (hasExplicitSubdomain() ? getActiveSchoolId() : null);
 
   // Check against the configured accounts
   const configuredMatch = CONFIGURED_ACCOUNTS.find(
@@ -152,7 +196,6 @@ export async function signInWithEmail(usernameOrEmail: string, password: string)
 
   // Fast offline path for local dev: authenticate instantly in 0ms without hitting Google Cloud
   if (isLocalOffline) {
-    const activeSchoolId = getActiveSchoolId();
     if (configuredMatch) {
       if (configuredMatch.password !== password) {
         throw new Error('Invalid username or password');
@@ -163,7 +206,7 @@ export async function signInWithEmail(usernameOrEmail: string, password: string)
         u.email?.toLowerCase() === cleanInput.toLowerCase()
       );
       const schoolId = existing?.schoolId || configuredMatch.schoolId;
-      if (!isUserAuthorizedForSchool({ schoolId, role: configuredMatch.role }, activeSchoolId)) {
+      if (effectiveTargetSchool && !isUserAuthorizedForSchool({ schoolId, role: configuredMatch.role }, effectiveTargetSchool)) {
         const userSchool = getSchoolById(schoolId);
         const schoolName = userSchool?.name || 'another school';
         throw new Error(
@@ -194,7 +237,7 @@ export async function signInWithEmail(usernameOrEmail: string, password: string)
       u.id?.toLowerCase() === cleanInput.toLowerCase()
     );
     if (existing) {
-      if (!isUserAuthorizedForSchool(existing, activeSchoolId)) {
+      if (effectiveTargetSchool && !isUserAuthorizedForSchool(existing, effectiveTargetSchool)) {
         const userSchool = getSchoolById(existing.schoolId);
         const schoolName = userSchool?.name || 'another school';
         throw new Error(
@@ -216,12 +259,11 @@ export async function signInWithEmail(usernameOrEmail: string, password: string)
     u.id?.toLowerCase() === cleanInput.toLowerCase()
   );
 
-  const activeSchoolId = getActiveSchoolId();
   const preliminarySchoolId = match?.schoolId || configuredMatch?.schoolId;
   const preliminaryRole = match?.role || configuredMatch?.role;
 
-  // PRE-AUTH CHECK: If user is known to belong to another school, block BEFORE touching Firebase Auth
-  if (preliminarySchoolId && !isUserAuthorizedForSchool({ schoolId: preliminarySchoolId, role: preliminaryRole }, activeSchoolId)) {
+  // PRE-AUTH CHECK: Only enforce when signing in to an explicitly target-locked school
+  if (effectiveTargetSchool && preliminarySchoolId && !isUserAuthorizedForSchool({ schoolId: preliminarySchoolId, role: preliminaryRole }, effectiveTargetSchool)) {
     const userSchool = getSchoolById(preliminarySchoolId);
     const schoolName = userSchool?.name || 'another school';
     throw new Error(
@@ -249,8 +291,8 @@ export async function signInWithEmail(usernameOrEmail: string, password: string)
       schoolId: match?.schoolId || configuredMatch?.schoolId || appUser.schoolId
     };
 
-    // POST-AUTH CHECK: In case user record was newly resolved from Firestore/Firebase
-    if (!isUserAuthorizedForSchool(resolvedUser, activeSchoolId)) {
+    // POST-AUTH CHECK: Only enforce when signing in to an explicitly target-locked school
+    if (effectiveTargetSchool && !isUserAuthorizedForSchool(resolvedUser, effectiveTargetSchool)) {
       await signOutFirebase().catch(() => {});
       const userSchool = getSchoolById(resolvedUser.schoolId);
       const schoolName = userSchool?.name || 'another school';
@@ -265,7 +307,7 @@ export async function signInWithEmail(usernameOrEmail: string, password: string)
 
     // If account is one of our configured accounts and password matches:
     if (configuredMatch && configuredMatch.password === password) {
-      if (!isUserAuthorizedForSchool(configuredMatch, activeSchoolId)) {
+      if (effectiveTargetSchool && !isUserAuthorizedForSchool(configuredMatch, effectiveTargetSchool)) {
         const userSchool = getSchoolById(configuredMatch.schoolId);
         const schoolName = userSchool?.name || 'another school';
         throw new Error(
@@ -514,13 +556,16 @@ export function subscribeToAuthState(callback: (user: User | null, firebaseUser:
     if (raw) {
       try {
         const u = JSON.parse(raw);
-        const activeSchoolId = getActiveSchoolId();
-        if (!isUserAuthorizedForSchool(u, activeSchoolId)) {
-          localStorage.removeItem('activeUser');
-          callback(null, null);
-        } else {
-          callback(u, null);
+        const currentRoute = parseAppRoute();
+        if (currentRoute.type === 'school') {
+          const activeSchoolId = getActiveSchoolId();
+          if (!isUserAuthorizedForSchool(u, activeSchoolId)) {
+            localStorage.removeItem('activeUser');
+            callback(null, null);
+            return;
+          }
         }
+        callback(u, null);
       } catch {
         callback(null, null);
       }
@@ -533,13 +578,16 @@ export function subscribeToAuthState(callback: (user: User | null, firebaseUser:
     if (fbUser) {
       try {
         const appUser = await getAppUserFromFirebase(fbUser);
-        const activeSchoolId = getActiveSchoolId();
-        if (!isUserAuthorizedForSchool(appUser, activeSchoolId)) {
-          console.warn(`Blocked auth state update: user ${appUser.username} belongs to ${appUser.schoolId}, but active campus is ${activeSchoolId}`);
-          await signOut(auth).catch(() => {});
-          localStorage.removeItem('activeUser');
-          callback(null, null);
-          return;
+        const currentRoute = parseAppRoute();
+        if (currentRoute.type === 'school') {
+          const activeSchoolId = getActiveSchoolId();
+          if (!isUserAuthorizedForSchool(appUser, activeSchoolId)) {
+            console.warn(`Blocked auth state update: user ${appUser.username} belongs to ${appUser.schoolId}, but active campus is ${activeSchoolId}`);
+            await signOut(auth).catch(() => {});
+            localStorage.removeItem('activeUser');
+            callback(null, null);
+            return;
+          }
         }
         callback(appUser, fbUser);
       } catch (err) {

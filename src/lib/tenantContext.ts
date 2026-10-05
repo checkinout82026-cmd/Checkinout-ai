@@ -26,6 +26,32 @@ export const SEED_SCHOOLS: School[] = [
     isActive: true,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z'
+  },
+  {
+    id: 'school_pleasanton',
+    name: 'Kumon Math & Reading Center of Pleasanton',
+    slug: 'pleasanton',
+    subtitle: 'Pleasanton',
+    themeColor: '#6366f1',
+    logoUrl: '/kumon_logo.webp',
+    address: '6601 Owens Dr, Pleasanton, CA 94588',
+    phone: '(925) 463-1000',
+    isActive: true,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z'
+  },
+  {
+    id: 'school_san_ramon',
+    name: 'Kumon Math & Reading Center of San Ramon',
+    slug: 'san-ramon',
+    subtitle: 'San Ramon',
+    themeColor: '#f59e0b',
+    logoUrl: '/kumon_logo.webp',
+    address: '2435 San Ramon Valley Blvd, San Ramon, CA 94583',
+    phone: '(925) 830-1000',
+    isActive: true,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z'
   }
 ];
 
@@ -33,6 +59,13 @@ export const DEFAULT_SCHOOL_ID = 'school_dublin_east';
 
 let simulatedHostname: string | null = null;
 let simulatedSearch: string | null = null;
+let simulatedPathname: string | null = null;
+
+export function setSimulatedLocation(options: { hostname?: string | null; search?: string | null; pathname?: string | null }): void {
+  if (options.hostname !== undefined) simulatedHostname = options.hostname;
+  if (options.search !== undefined) simulatedSearch = options.search;
+  if (options.pathname !== undefined) simulatedPathname = options.pathname;
+}
 
 export function setSimulatedHostname(hostname: string | null, search: string | null = null): void {
   simulatedHostname = hostname;
@@ -124,28 +157,81 @@ export function isSchoolSelectionRequired(hostname?: string, search?: string): b
   return true;
 }
 
+export function extractSlugFromPath(pathname?: string): string | null {
+  const path = pathname ?? simulatedPathname ?? (typeof window !== 'undefined' ? window.location.pathname : '');
+  const clean = path.replace(/^\/+|\/+$/g, '');
+  if (!clean) return null;
+  const firstSegment = clean.split('/')[0].toLowerCase();
+  if (firstSegment === 'login' || firstSegment === 'api' || firstSegment === 'assets') {
+    return null;
+  }
+  const matched = getSchoolBySlug(firstSegment);
+  return matched ? matched.slug : null;
+}
+
+export interface AppRoute {
+  type: 'login' | 'school' | 'root';
+  schoolSlug?: string;
+  view?: 'dashboard' | 'kiosk';
+}
+
+export function parseAppRoute(pathname?: string): AppRoute {
+  const path = pathname ?? simulatedPathname ?? (typeof window !== 'undefined' ? window.location.pathname : '');
+  const clean = path.replace(/^\/+|\/+$/g, '');
+  if (!clean) return { type: 'root' };
+  
+  const segments = clean.split('/');
+  const first = segments[0].toLowerCase();
+  if (first === 'login') {
+    return { type: 'login' };
+  }
+  
+  const school = getSchoolBySlug(first);
+  if (school) {
+    const second = segments[1]?.toLowerCase();
+    const view = second === 'kiosk' ? 'kiosk' : 'dashboard';
+    return { type: 'school', schoolSlug: school.slug, view };
+  }
+  
+  return { type: 'root' };
+}
+
+export function navigateTo(path: string): void {
+  if (typeof window !== 'undefined' && window.history) {
+    window.history.pushState({}, '', path);
+    window.dispatchEvent(new Event('popstate'));
+  }
+}
+
 /**
- * Resolves the School based on the request's subdomain or remembered selection.
+ * Resolves the School based on route path, subdomain, query params, or remembered selection.
  */
-export function resolveSchoolFromHostname(hostname?: string, search?: string): School {
+export function resolveSchoolFromHostname(hostname?: string, search?: string, pathname?: string): School {
+  // 1. Path-based route (e.g. /dublin-west/dashboard or /pleasanton/kiosk) takes #1 precedence
+  const pathSlug = extractSlugFromPath(pathname);
+  if (pathSlug) {
+    const matched = getSchoolBySlug(pathSlug);
+    if (matched) return matched;
+  }
+
   const host = hostname ?? simulatedHostname ?? (typeof window !== 'undefined' ? window.location.hostname : 'localhost');
   const searchStr = search ?? simulatedSearch ?? (typeof window !== 'undefined' ? window.location.search : '');
 
-  // 1. Explicit subdomain or query param takes highest precedence
+  // 2. Explicit subdomain or query param takes second precedence
   const slug = extractSubdomain(host, searchStr);
   if (slug) {
     const matched = getSchoolBySlug(slug);
     if (matched) return matched;
   }
 
-  // 2. Remembered school selection in localStorage (e.g. for Render bare domains)
+  // 3. Remembered school selection in localStorage (e.g. for Render bare domains)
   const remembered = getRememberedSchoolSlug();
   if (remembered) {
     const matched = getSchoolBySlug(remembered);
     if (matched) return matched;
   }
 
-  // 3. Fallback to default school
+  // 4. Fallback to default school (Dublin East)
   return SEED_SCHOOLS[0];
 }
 

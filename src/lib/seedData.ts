@@ -706,7 +706,233 @@ export const SCHOOL_B_ATTENDANCE: AttendanceRecord[] = [
   }
 ];
 
-export const ALL_SEED_ATTENDANCE: AttendanceRecord[] = [...INITIAL_ATTENDANCE_RECORDS, ...SCHOOL_B_ATTENDANCE];
+export const PLEASANTON_STUDENTS: Student[] = [
+  {
+    id: "30001",
+    name: "Ethan Davis",
+    fullName: "Ethan Davis",
+    schoolId: "school_pleasanton",
+    gradeLevel: "Kumon Math",
+    parent: {
+      name: "Rachel Davis",
+      phone: "555-0301",
+      email: "rachel.davis@example.com"
+    },
+    parentName: "Rachel Davis",
+    parentPhone: "555-0301",
+    parentEmail: "rachel.davis@example.com",
+    authorizedPickups: ["Rachel Davis", "Thomas Davis"],
+    authorizedPickupDetails: [
+      {
+        name: "Rachel Davis",
+        relationship: "Mother",
+        phone: "555-0301",
+        schoolId: "school_pleasanton",
+        isPrimary: true
+      },
+      {
+        name: "Thomas Davis",
+        relationship: "Father",
+        phone: "555-0302",
+        schoolId: "school_pleasanton",
+        isPrimary: false
+      }
+    ],
+    notes: "Pleasanton Center Student",
+    isActive: true,
+    createdAt: "2026-08-01T08:00:00.000Z",
+    updatedAt: "2026-08-01T08:00:00.000Z"
+  },
+  {
+    id: "30002",
+    name: "Chloe Wilson",
+    fullName: "Chloe Wilson",
+    schoolId: "school_pleasanton",
+    gradeLevel: "Kumon Reading",
+    parent: {
+      name: "James Wilson",
+      phone: "555-0311",
+      email: "james.wilson@example.com"
+    },
+    parentName: "James Wilson",
+    parentPhone: "555-0311",
+    parentEmail: "james.wilson@example.com",
+    authorizedPickups: ["James Wilson"],
+    authorizedPickupDetails: [
+      {
+        name: "James Wilson",
+        relationship: "Father",
+        phone: "555-0311",
+        schoolId: "school_pleasanton",
+        isPrimary: true
+      }
+    ],
+    notes: "Pleasanton Center Student",
+    isActive: true,
+    createdAt: "2026-08-01T08:00:00.000Z",
+    updatedAt: "2026-08-01T08:00:00.000Z"
+  },
+  {
+    id: "30003",
+    name: "Liam Patel",
+    fullName: "Liam Patel",
+    schoolId: "school_pleasanton",
+    gradeLevel: "Kumon Math & Reading",
+    parent: {
+      name: "Priya Patel",
+      phone: "555-0321",
+      email: "priya.patel@example.com"
+    },
+    parentName: "Priya Patel",
+    parentPhone: "555-0321",
+    parentEmail: "priya.patel@example.com",
+    authorizedPickups: ["Priya Patel", "Amit Patel"],
+    authorizedPickupDetails: [
+      {
+        name: "Priya Patel",
+        relationship: "Mother",
+        phone: "555-0321",
+        schoolId: "school_pleasanton",
+        isPrimary: true
+      }
+    ],
+    notes: "Pleasanton Center Student",
+    isActive: true,
+    createdAt: "2026-08-01T08:00:00.000Z",
+    updatedAt: "2026-08-01T08:00:00.000Z"
+  }
+];
+
+export const SAN_RAMON_STUDENTS: Student[] = [
+  {
+    id: "40001",
+    name: "Oliver Taylor",
+    fullName: "Oliver Taylor",
+    schoolId: "school_san_ramon",
+    gradeLevel: "Kumon Math",
+    parent: {
+      name: "Jessica Taylor",
+      phone: "555-0401",
+      email: "jessica.taylor@example.com"
+    },
+    parentName: "Jessica Taylor",
+    parentPhone: "555-0401",
+    parentEmail: "jessica.taylor@example.com",
+    authorizedPickups: ["Jessica Taylor", "Richard Taylor"],
+    authorizedPickupDetails: [
+      {
+        name: "Jessica Taylor",
+        relationship: "Mother",
+        phone: "555-0401",
+        schoolId: "school_san_ramon",
+        isPrimary: true
+      }
+    ],
+    notes: "San Ramon Center Student",
+    isActive: true,
+    createdAt: "2026-08-01T08:00:00.000Z",
+    updatedAt: "2026-08-01T08:00:00.000Z"
+  },
+  {
+    id: "40002",
+    name: "Ava Thomas",
+    fullName: "Ava Thomas",
+    schoolId: "school_san_ramon",
+    gradeLevel: "Kumon Reading",
+    parent: {
+      name: "Michael Thomas",
+      phone: "555-0411",
+      email: "michael.thomas@example.com"
+    },
+    parentName: "Michael Thomas",
+    parentPhone: "555-0411",
+    parentEmail: "michael.thomas@example.com",
+    authorizedPickups: ["Michael Thomas"],
+    authorizedPickupDetails: [
+      {
+        name: "Michael Thomas",
+        relationship: "Father",
+        phone: "555-0411",
+        schoolId: "school_san_ramon",
+        isPrimary: true
+      }
+    ],
+    notes: "San Ramon Center Student",
+    isActive: true,
+    createdAt: "2026-08-01T08:00:00.000Z",
+    updatedAt: "2026-08-01T08:00:00.000Z"
+  }
+];
+
+export const PLEASANTON_ATTENDANCE: AttendanceRecord[] = [
+  {
+    id: "att-pleasanton-1",
+    studentId: "30001",
+    schoolId: "school_pleasanton",
+    studentName: "Ethan Davis",
+    date: "2026-08-29",
+    checkInTime: "2026-08-29T16:00:00.000Z",
+    checkOutTime: "2026-08-29T16:45:00.000Z",
+    checkInMethod: "student_self",
+    checkInStaffName: "Pleasanton Kiosk",
+    checkOutStaffName: "Pleasanton Kiosk",
+    pickupPerson: "Rachel Davis",
+    pickupPersonName: "Rachel Davis",
+    status: "checked_out",
+    smsNotificationSent: true,
+    createdAt: "2026-08-29T16:00:00.000Z",
+    updatedAt: "2026-08-29T16:45:00.000Z"
+  }
+];
+
+export const SAN_RAMON_ATTENDANCE: AttendanceRecord[] = [
+  {
+    id: "att-sanramon-1",
+    studentId: "40001",
+    schoolId: "school_san_ramon",
+    studentName: "Oliver Taylor",
+    date: "2026-08-29",
+    checkInTime: "2026-08-29T16:15:00.000Z",
+    checkOutTime: null,
+    checkInMethod: "student_self",
+    checkInStaffName: "San Ramon Kiosk",
+    pickupPerson: "Jessica Taylor",
+    pickupPersonName: "Jessica Taylor",
+    status: "checked_in",
+    smsNotificationSent: true,
+    createdAt: "2026-08-29T16:15:00.000Z",
+    updatedAt: "2026-08-29T16:15:00.000Z"
+  }
+];
+
+export const ALL_SEED_ATTENDANCE: AttendanceRecord[] = [
+  ...INITIAL_ATTENDANCE_RECORDS, 
+  ...SCHOOL_B_ATTENDANCE,
+  ...PLEASANTON_ATTENDANCE,
+  ...SAN_RAMON_ATTENDANCE
+];
 export const DUMMY_ATTENDANCE: AttendanceRecord[] = INITIAL_ATTENDANCE_RECORDS;
 export const generate10Students = (): Student[] => SYNTHETIC_STUDENTS;
+
+export function getSeedStudentsForSchool(schoolId: string): Student[] {
+  switch (schoolId) {
+    case 'school_dublin_west': return SCHOOL_B_STUDENTS;
+    case 'school_pleasanton': return PLEASANTON_STUDENTS;
+    case 'school_san_ramon': return SAN_RAMON_STUDENTS;
+    case 'school_dublin_east':
+    default:
+      return SYNTHETIC_STUDENTS;
+  }
+}
+
+export function getSeedAttendanceForSchool(schoolId: string): AttendanceRecord[] {
+  switch (schoolId) {
+    case 'school_dublin_west': return SCHOOL_B_ATTENDANCE;
+    case 'school_pleasanton': return PLEASANTON_ATTENDANCE;
+    case 'school_san_ramon': return SAN_RAMON_ATTENDANCE;
+    case 'school_dublin_east':
+    default:
+      return INITIAL_ATTENDANCE_RECORDS;
+  }
+}
 

@@ -1,27 +1,22 @@
 import React, { useState } from 'react';
-import { signInWithEmail, signOutFirebase } from '../lib/auth';
+import { signInWithEmail } from '../lib/auth';
 import { User } from '../types';
 import { KumonLogo } from './KumonLogo';
 import toast from 'react-hot-toast';
-import { Shield, Lock, User as UserIcon, Loader2, Eye, EyeOff, ArrowRight, Clock, LayoutDashboard, Building2 } from 'lucide-react';
-import { useSchoolBranding, getActiveSchool, getSchoolById, isUserAuthorizedForSchool } from '../lib/tenantContext';
-import { CampusSelectionModal } from './CampusSelectionModal';
+import { Shield, Lock, User as UserIcon, Loader2, Eye, EyeOff, ArrowRight, Clock, LayoutDashboard } from 'lucide-react';
 
 interface LoginProps {
   onLogin: (user: User, targetMode: 'kiosk' | 'dashboard') => void;
-  onCampusChange?: () => void;
 }
 
-export function Login({ onLogin, onCampusChange }: LoginProps) {
-  const { school, subtitle, themeColor, isExplicitSubdomain } = useSchoolBranding();
+export function Login({ onLogin }: LoginProps) {
   const [targetMode, setTargetMode] = useState<'kiosk' | 'dashboard'>('kiosk');
-  const [showCampusModal, setShowCampusModal] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Handle Staff/Admin Sign In using Username & Password
+  // Handle Global Staff/Admin Sign In using Username & Password
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanUsername = username.trim();
@@ -36,21 +31,9 @@ export function Login({ onLogin, onCampusChange }: LoginProps) {
 
     setLoading(true);
     try {
+      // Global login: no targetSchoolId restriction
       const user = await signInWithEmail(cleanUsername, password);
-      const activeSchool = getActiveSchool();
-
-      // Subdomain-scoped login enforcement:
-      // School A user cannot log into School B's subdomain
-      if (!isUserAuthorizedForSchool(user, activeSchool.id)) {
-        await signOutFirebase().catch(() => {});
-        const userSchool = getSchoolById(user.schoolId);
-        const schoolName = userSchool?.name || 'another school';
-        throw new Error(
-          `This account is registered with ${schoolName}. Please switch your center campus or access the ${userSchool?.subtitle || 'appropriate'} portal.`
-        );
-      }
-
-      toast.success(`Welcome, ${user.name}! Opening ${targetMode === 'kiosk' ? 'Check-In Kiosk' : 'Management Dashboard'}`);
+      toast.success(`Welcome, ${user.name}!`);
       onLogin(user, targetMode);
     } catch (err: any) {
       console.warn('Sign in attempt failed:', err?.code || err);
@@ -79,12 +62,12 @@ export function Login({ onLogin, onCampusChange }: LoginProps) {
   return (
     <div 
       className="min-h-screen flex items-center justify-center text-[#3c3c3b] font-sans p-4 transition-colors duration-300"
-      style={{ backgroundColor: themeColor }}
+      style={{ backgroundColor: '#2edaff' }}
     >
       <div className="w-full max-w-md bg-white p-7 sm:p-9 rounded-[36px] shadow-xl border border-[#e5e1da] animate-in fade-in zoom-in-95 duration-200">
         {/* Header Branding */}
         <div className="text-center mb-6 flex flex-col items-center">
-          <KumonLogo variant="vertical" size="lg" subtitle={subtitle} />
+          <KumonLogo variant="vertical" size="lg" subtitle="Staff & Management Portal" />
         </div>
 
         {/* Portal Mode Selector (Kiosk vs Management Dashboard) */}
@@ -213,34 +196,8 @@ export function Login({ onLogin, onCampusChange }: LoginProps) {
               </>
             )}
           </button>
-
-          {/* Bare Domain Campus Switcher (Enabled when not locked to a specific subdomain) */}
-          {!isExplicitSubdomain && (
-            <div className="mt-5 pt-4 border-t border-[#e5e1da] text-center">
-              <button
-                type="button"
-                onClick={() => setShowCampusModal(true)}
-                className="text-xs text-[#5c869e] hover:text-[#3c3c3b] font-medium inline-flex items-center gap-1.5 cursor-pointer transition-colors"
-              >
-                <Building2 size={13} className="text-[#5c869e]" />
-                <span>Campus: <strong>{subtitle}</strong></span>
-                <span className="text-[11px] underline ml-1 text-[#8c8a86] hover:text-[#3c3c3b]">(Change)</span>
-              </button>
-            </div>
-          )}
         </form>
       </div>
-
-      {/* Campus Selection Modal */}
-      <CampusSelectionModal
-        isOpen={showCampusModal}
-        canDismiss={true}
-        onClose={() => setShowCampusModal(false)}
-        onSelectSchool={() => {
-          setShowCampusModal(false);
-          if (onCampusChange) onCampusChange();
-        }}
-      />
     </div>
   );
 }
