@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../lib/db';
 import { registerStaffOrAdmin, CONFIGURED_ACCOUNTS } from '../lib/auth';
-import { User, Role } from '../types';
+import { School, User, Role } from '../types';
+import { getActiveSchool, getActiveSchoolId, getAllSchools } from '../lib/tenantContext';
 import toast from 'react-hot-toast';
 import { 
   UserPlus, 
@@ -15,22 +16,18 @@ import {
   Info, 
   X, 
   Eye, 
-  EyeOff
+  EyeOff,
+  Building2
 } from 'lucide-react';
 
 interface AdminStaffProps {
   currentUser?: User | null;
+  school?: School;
 }
 
-export function AdminStaff({ currentUser }: AdminStaffProps) {
-  const [staffList, setStaffList] = useState<User[]>([]);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  // Deletion Confirmation Modal State
-  const [userToDelete, setUserToDelete] = useState<User | null>(null);
-  const [isDeletingUser, setIsDeletingUser] = useState(false);
+export function AdminStaff({ currentUser, school }: AdminStaffProps) {
+  const activeSchool = school || getActiveSchool();
+  const currentSchoolId = activeSchool?.id || getActiveSchoolId();
 
   // Determine current active user (from props or cached session)
   const effectiveUser = currentUser || (() => {
@@ -41,6 +38,23 @@ export function AdminStaff({ currentUser }: AdminStaffProps) {
       return null;
     }
   })();
+
+  const isSuperAdmin = effectiveUser?.role === 'super_admin';
+  const allSchools = getAllSchools();
+
+  // School filter state: super_admin can filter by campus or view 'all', whereas regular admins are strictly locked
+  const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>(
+    isSuperAdmin ? activeSchool.id : currentSchoolId
+  );
+
+  const [staffList, setStaffList] = useState<User[]>([]);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  // Deletion Confirmation Modal State
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [isDeletingUser, setIsDeletingUser] = useState(false);
 
   const isUserSelf = (target: User) => {
     if (!effectiveUser) return false;
@@ -65,14 +79,27 @@ export function AdminStaff({ currentUser }: AdminStaffProps) {
   const [editUsername, setEditUsername] = useState('');
   const [editRole, setEditRole] = useState<Role>('staff');
 
+  // Sync filter when activeSchool changes
   useEffect(() => {
+    if (!isSuperAdmin) {
+      setSelectedSchoolFilter(activeSchool.id);
+    }
+  }, [activeSchool.id, isSuperAdmin]);
+
+  // Subscribe to users strictly filtered by school
+  useEffect(() => {
+    const scopeToSubscribe = isSuperAdmin ? selectedSchoolFilter : currentSchoolId;
     const unsubscribe = db.subscribeUsers((users) => {
       setStaffList(users);
-    });
+    }, scopeToSubscribe);
     return () => {
       if (typeof unsubscribe === 'function') unsubscribe();
     };
-  }, []);
+  }, [selectedSchoolFilter, currentSchoolId, isSuperAdmin]);
+
+  const targetSchoolToAssign = isSuperAdmin && selectedSchoolFilter !== 'all' 
+    ? selectedSchoolFilter 
+    : currentSchoolId;
 
   const handleAddStaff = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,7 +109,9 @@ export function AdminStaff({ currentUser }: AdminStaffProps) {
       return;
     }
 
-    if (staffList.find(u => u.username.toLowerCase() === cleanUsername.toLowerCase())) {
+    // Check across all existing users in the system to prevent username collisions across schools
+    const allUsers = db.getUsers();
+    if (allUsers.some(u => u.username?.toLowerCase() === cleanUsername.toLowerCase())) {
       toast.error('Username already taken. Please choose another username.');
       return;
     }
@@ -97,14 +126,15 @@ export function AdminStaff({ currentUser }: AdminStaffProps) {
 
     setLoading(true);
     try {
-      // Create user in Firebase Auth & Firestore
+      // Create user in Firebase Auth & Firestore scoped to active campus
       await registerStaffOrAdmin(
         generatedEmail,
         cleanPassword,
         name.trim() || cleanUsername,
         role,
         '', // No phone
-        cleanUsername
+        cleanUsername,
+        targetSchoolToAssign
       );
       toast.success(`${role === 'admin' ? 'Administrator' : 'Staff member'} created with username "${cleanUsername}"!`);
       
@@ -122,6 +152,7 @@ export function AdminStaff({ currentUser }: AdminStaffProps) {
         name: name.trim() || cleanUsername,
         fullName: name.trim() || cleanUsername,
         role,
+        schoolId: targetSchoolToAssign,
         email: generatedEmail,
         phone: '',
         isActive: true,
@@ -153,9 +184,10 @@ export function AdminStaff({ currentUser }: AdminStaffProps) {
       return;
     }
 
-    // Check if username is taken by another user
-    const existing = staffList.find(
-      u => u.id !== editingUser.id && u.username.toLowerCase() === cleanUsername.toLowerCase()
+    // Check if username is taken by another user system-wide
+    const allUsers = db.getUsers();
+    const existing = allUsers.find(
+      u => u.id !== editingUser.id && u.username?.toLowerCase() === cleanUsername.toLowerCase()
     );
     if (existing) {
       toast.error(`Username "${cleanUsername}" is already taken by another account`);
@@ -177,6 +209,7 @@ export function AdminStaff({ currentUser }: AdminStaffProps) {
         email: editingUser.email || `${cleanUsername.toLowerCase()}@school.org`,
         phone: '',
         role: editRole,
+        schoolId: editingUser.schoolId || targetSchoolToAssign,
         updatedAt: new Date().toISOString()
       };
 
@@ -225,14 +258,25 @@ export function AdminStaff({ currentUser }: AdminStaffProps) {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-serif font-semibold text-[#4a4a48]">Manage Staff & Admins</h1>
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-2xl font-serif font-semibold text-[#4a4a48]">Manage Staff &amp; Admins</h1>
+            <span 
+              className="px-2.5 py-0.5 text-xs font-semibold rounded-full border flex items-center gap-1.5"
+              style={{ 
+                backgroundColor: `${activeSchool.themeColor}15`, 
+                borderColor: `${activeSchool.themeColor}40`,
+                color: activeSchool.themeColor 
+              }}
+            >
+              <Building2 size={12} />
+              {activeSchool.subtitle || activeSchool.name}
+            </span>
             <span className="px-2.5 py-0.5 text-xs font-semibold bg-[#5c869e]/15 text-[#4b6573] rounded-full">
               {staffList.filter(u => u.role !== 'student').length} Accounts
             </span>
           </div>
           <p className="text-[#8c8a86] mt-1 text-sm">
-            Manage username credentials and access permissions for staff and administrator accounts.
+            Manage username credentials and access permissions for staff and administrator accounts at {activeSchool.name}.
           </p>
         </div>
         <button
@@ -243,6 +287,37 @@ export function AdminStaff({ currentUser }: AdminStaffProps) {
           {showAddForm ? 'Close Form' : 'Add Staff or Admin'}
         </button>
       </div>
+
+      {/* Super Admin School Switcher Filter (Only visible to super_admin) */}
+      {isSuperAdmin && (
+        <div className="bg-white p-3.5 rounded-2xl border border-[#e5e1da] flex items-center gap-2 flex-wrap shadow-sm">
+          <span className="text-xs font-bold text-[#8c8a86] uppercase tracking-wider px-2">Campus Filter:</span>
+          <button
+            onClick={() => setSelectedSchoolFilter('all')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              selectedSchoolFilter === 'all'
+                ? 'bg-[#4a4a48] text-white shadow-sm'
+                : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+            }`}
+          >
+            All Campuses
+          </button>
+          {allSchools.map(sch => (
+            <button
+              key={sch.id}
+              onClick={() => setSelectedSchoolFilter(sch.id)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                selectedSchoolFilter === sch.id
+                  ? 'text-white shadow-sm'
+                  : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+              }`}
+              style={selectedSchoolFilter === sch.id ? { backgroundColor: sch.themeColor } : {}}
+            >
+              {sch.subtitle || sch.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Instructions Banner */}
       <div className="bg-[#f0f6fa] border border-[#d2e4ef] p-4 rounded-2xl flex items-start gap-3.5">
@@ -450,6 +525,9 @@ export function AdminStaff({ currentUser }: AdminStaffProps) {
             <thead className="bg-[#fcfaf7] text-[10px] uppercase tracking-widest text-[#8c8a86] font-bold border-b border-[#f2efe9]">
               <tr>
                 <th className="px-8 py-5">Name &amp; Role</th>
+                {isSuperAdmin && selectedSchoolFilter === 'all' && (
+                  <th className="px-8 py-5">Campus</th>
+                )}
                 <th className="px-8 py-5">Username (Login ID)</th>
                 <th className="px-8 py-5">Access Permissions</th>
                 <th className="px-8 py-5">Status</th>
@@ -467,6 +545,24 @@ export function AdminStaff({ currentUser }: AdminStaffProps) {
                       </span>
                     </div>
                   </td>
+                  {isSuperAdmin && selectedSchoolFilter === 'all' && (
+                    <td className="px-8 py-4">
+                      {(() => {
+                        const targetSchool = allSchools.find(sch => sch.id === (s.schoolId || 'school_dublin_east'));
+                        return (
+                          <span 
+                            className="inline-flex px-2 py-0.5 rounded-lg text-xs font-semibold"
+                            style={{ 
+                              backgroundColor: `${targetSchool?.themeColor || '#8c8a86'}15`,
+                              color: targetSchool?.themeColor || '#4a4a48'
+                            }}
+                          >
+                            {targetSchool?.subtitle || targetSchool?.name || 'Dublin - East'}
+                          </span>
+                        );
+                      })()}
+                    </td>
+                  )}
                   <td className="px-8 py-4">
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-[#5c869e]/10 text-[#4b6573] font-mono font-bold text-xs">
                       <UserIcon size={12} />

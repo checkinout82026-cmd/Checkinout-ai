@@ -8,7 +8,7 @@ import {
   isUserAuthorizedForSchool,
   getSchoolBySlug
 } from '../lib/tenantContext';
-import { signInWithEmail } from '../lib/auth';
+import { signInWithEmail, registerStaffOrAdmin } from '../lib/auth';
 
 describe('Multi-Region Route-Based and Dedicated Table Architecture', () => {
   beforeEach(() => {
@@ -141,6 +141,107 @@ describe('Multi-Region Route-Based and Dedicated Table Architecture', () => {
       expect(isUserAuthorizedForSchool(superAdmin, 'school_dublin_west')).toBe(true);
       expect(isUserAuthorizedForSchool(superAdmin, 'school_pleasanton')).toBe(true);
       expect(isUserAuthorizedForSchool(superAdmin, 'school_san_ramon')).toBe(true);
+    });
+  });
+
+  describe('5. Manage Staff School-Scoping & Admin Isolation', () => {
+    it('returns only Pleasanton staff/admins for school_pleasanton with no cross-school leak', () => {
+      const pleasantonUsers = db.getUsers('school_pleasanton');
+      expect(pleasantonUsers.length).toBeGreaterThan(0);
+      pleasantonUsers.forEach(u => {
+        expect(u.schoolId).toBe('school_pleasanton');
+      });
+
+      // Must contain Pleasanton accounts
+      expect(pleasantonUsers.some(u => u.username === 'PleasantonAdmin')).toBe(true);
+      expect(pleasantonUsers.some(u => u.username === 'PleasantonStaff')).toBe(true);
+
+      // Must NOT contain Dublin East, Dublin West, San Ramon, or SuperAdmin
+      expect(pleasantonUsers.some(u => u.username === 'Ajita')).toBe(false);
+      expect(pleasantonUsers.some(u => u.username === 'CenterStaff')).toBe(false);
+      expect(pleasantonUsers.some(u => u.username === 'Sanjay')).toBe(false);
+      expect(pleasantonUsers.some(u => u.username === 'WestStaff')).toBe(false);
+      expect(pleasantonUsers.some(u => u.username === 'SanRamonAdmin')).toBe(false);
+      expect(pleasantonUsers.some(u => u.username === 'SuperAdmin')).toBe(false);
+    });
+
+    it('returns only San Ramon staff/admins for school_san_ramon with no cross-school leak', () => {
+      const sanRamonUsers = db.getUsers('school_san_ramon');
+      expect(sanRamonUsers.length).toBeGreaterThan(0);
+      sanRamonUsers.forEach(u => {
+        expect(u.schoolId).toBe('school_san_ramon');
+      });
+
+      expect(sanRamonUsers.some(u => u.username === 'SanRamonAdmin')).toBe(true);
+      expect(sanRamonUsers.some(u => u.username === 'SanRamonStaff')).toBe(true);
+
+      // Must NOT contain Pleasanton, Dublin East, or Dublin West accounts
+      expect(sanRamonUsers.some(u => u.username === 'PleasantonAdmin')).toBe(false);
+      expect(sanRamonUsers.some(u => u.username === 'Ajita')).toBe(false);
+      expect(sanRamonUsers.some(u => u.username === 'Sanjay')).toBe(false);
+    });
+
+    it('returns only Dublin East staff/admins for school_dublin_east', () => {
+      const dublinEastUsers = db.getUsers('school_dublin_east');
+      expect(dublinEastUsers.length).toBeGreaterThan(0);
+      dublinEastUsers.forEach(u => {
+        expect(u.schoolId === 'school_dublin_east' || !u.schoolId).toBe(true);
+      });
+
+      expect(dublinEastUsers.some(u => u.username === 'Ajita')).toBe(true);
+      expect(dublinEastUsers.some(u => u.username === 'CenterStaff')).toBe(true);
+
+      expect(dublinEastUsers.some(u => u.username === 'PleasantonAdmin')).toBe(false);
+      expect(dublinEastUsers.some(u => u.username === 'SanRamonAdmin')).toBe(false);
+      expect(dublinEastUsers.some(u => u.username === 'WestStaff')).toBe(false);
+    });
+
+    it('delivers isolated users for active campus via db.subscribeUsers', () => {
+      let receivedUsers: any[] = [];
+      const unsub = db.subscribeUsers(users => {
+        receivedUsers = users;
+      }, 'school_pleasanton');
+
+      expect(receivedUsers.length).toBeGreaterThan(0);
+      receivedUsers.forEach(u => {
+        expect(u.schoolId).toBe('school_pleasanton');
+      });
+      expect(receivedUsers.some(u => u.username === 'Ajita')).toBe(false);
+      expect(receivedUsers.some(u => u.username === 'PleasantonAdmin')).toBe(true);
+
+      if (typeof unsub === 'function') unsub();
+    });
+
+    it('assigns schoolId when creating staff via registerStaffOrAdmin', async () => {
+      const newStaff = await registerStaffOrAdmin(
+        'newstaff@pleasanton.org',
+        'Oh43017',
+        'New Pleasanton Staff',
+        'staff',
+        '',
+        'NewPleasantonStaff',
+        'school_pleasanton'
+      );
+
+      expect(newStaff.schoolId).toBe('school_pleasanton');
+      expect(newStaff.username).toBe('NewPleasantonStaff');
+
+      const pleasantonUsers = db.getUsers('school_pleasanton');
+      expect(pleasantonUsers.some(u => u.username === 'NewPleasantonStaff')).toBe(true);
+
+      const dublinEastUsers = db.getUsers('school_dublin_east');
+      expect(dublinEastUsers.some(u => u.username === 'NewPleasantonStaff')).toBe(false);
+    });
+
+    it('protects against deleting the last remaining admin of a specific campus', async () => {
+      // Pleasanton has 1 admin (PleasantonAdmin)
+      const pleasantonAdmin = db.getUsers('school_pleasanton').find(u => u.username === 'PleasantonAdmin');
+      expect(pleasantonAdmin).toBeDefined();
+
+      // Deleting the sole admin of Pleasanton must throw an error even though other campuses have admins
+      await expect(db.deleteUser(pleasantonAdmin!.id)).rejects.toThrow(
+        /Cannot delete the last remaining administrator account/
+      );
     });
   });
 });

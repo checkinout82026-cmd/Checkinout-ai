@@ -276,7 +276,7 @@ export default function App() {
           case 'attendance': return <AdminAttendance />;
           case 'checkedin': return <CheckedInList />;
           case 'students': return <AdminStudents />;
-          case 'staff': return <AdminStaff currentUser={user} />;
+          case 'staff': return <AdminStaff currentUser={user} school={matchedSchool} />;
           default: return <AdminAttendance />;
         }
       }

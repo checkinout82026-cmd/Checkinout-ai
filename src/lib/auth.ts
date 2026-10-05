@@ -448,12 +448,14 @@ export async function registerStaffOrAdmin(
   fullName: string,
   role: Role,
   phone?: string,
-  customUsername?: string
+  customUsername?: string,
+  schoolId?: string
 ): Promise<User> {
   const cleanEmail = email.trim();
   const cleanPass = pass.trim();
   const cleanName = fullName.trim();
   const username = customUsername?.trim() || cleanEmail.split('@')[0] || `user_${Date.now()}`;
+  const targetSchoolId = schoolId || (role === 'super_admin' ? undefined : getActiveSchoolId());
 
   let uid = 'u_' + crypto.randomUUID().slice(0, 10);
 
@@ -466,7 +468,7 @@ export async function registerStaffOrAdmin(
       email: cleanEmail,
       phone: phone?.trim() || '',
       role,
-      schoolId: getActiveSchoolId(),
+      schoolId: targetSchoolId,
       isActive: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -493,6 +495,7 @@ export async function registerStaffOrAdmin(
     email: cleanEmail,
     phone: phone?.trim() || '',
     role,
+    schoolId: targetSchoolId,
     isActive: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()

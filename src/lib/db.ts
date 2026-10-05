@@ -232,14 +232,28 @@ export const db = {
       try {
         const parsed = JSON.parse(data);
         if (Array.isArray(parsed)) {
-          cachedUsers = parsed.map(({ password, ...rest }: any) => rest as User);
+          const loaded = parsed.map(({ password, ...rest }: any) => rest as User);
+          const map = new Map<string, User>();
+          defaultUsers.forEach(u => map.set(u.id, u));
+          loaded.forEach(u => map.set(u.id, u));
+          cachedUsers = Array.from(map.values()).filter(u => !isUserDeleted(u.id) && !isUserDeleted(u.username));
+        } else {
+          cachedUsers = defaultUsers.filter(u => !isUserDeleted(u.id) && !isUserDeleted(u.username));
         }
       } catch (e) {
         console.error('Error parsing cached users', e);
+        cachedUsers = defaultUsers.filter(u => !isUserDeleted(u.id) && !isUserDeleted(u.username));
       }
+    } else {
+      cachedUsers = defaultUsers.filter(u => !isUserDeleted(u.id) && !isUserDeleted(u.username));
     }
-    if (!schoolId) return cachedUsers;
-    return cachedUsers.filter(u => !u.schoolId || u.schoolId === schoolId || u.role === 'super_admin');
+    if (!schoolId || schoolId === 'all') return cachedUsers;
+    return cachedUsers.filter(u => {
+      if (schoolId === 'school_dublin_east') {
+        return (u.schoolId === 'school_dublin_east' || !u.schoolId) && u.role !== 'super_admin';
+      }
+      return u.schoolId === schoolId;
+    });
   },
 
   saveUsers: async (users: User[], schoolId?: string) => {
@@ -303,8 +317,13 @@ export const db = {
         : defaultUsers.filter(u => !isUserDeleted(u.id) && !isUserDeleted(u.username));
       cachedUsers = nextUsers;
       localStorage.setItem(USERS_KEY, JSON.stringify(nextUsers));
-      if (!schoolId) return nextUsers;
-      return nextUsers.filter(u => !u.schoolId || u.schoolId === schoolId || u.role === 'super_admin');
+      if (!schoolId || schoolId === 'all') return nextUsers;
+      return nextUsers.filter(u => {
+        if (schoolId === 'school_dublin_east') {
+          return (u.schoolId === 'school_dublin_east' || !u.schoolId) && u.role !== 'super_admin';
+        }
+        return u.schoolId === schoolId;
+      });
     } catch (err) {
       console.warn('Firestore loadUsers error (using local users):', err);
       return db.getUsers(schoolId);
@@ -356,9 +375,14 @@ export const db = {
     const allUsers = db.getUsers();
     const target = allUsers.find(u => u.id === id);
     if (target && target.role === 'admin') {
-      const activeAdmins = allUsers.filter(u => u.role === 'admin' && u.isActive !== false);
+      const targetSchoolId = target.schoolId || 'school_dublin_east';
+      const activeAdmins = allUsers.filter(u => 
+        u.role === 'admin' && 
+        u.isActive !== false && 
+        (u.schoolId === targetSchoolId || (!u.schoolId && targetSchoolId === 'school_dublin_east'))
+      );
       if (activeAdmins.length <= 1) {
-        throw new Error('Cannot delete the last remaining administrator account.');
+        throw new Error('Cannot delete the last remaining administrator account for this campus.');
       }
     }
 
@@ -857,13 +881,20 @@ export const db = {
 
   // Listeners for real-time sync with Firebase
   subscribeUsers: (callback: (users: User[]) => void, schoolId?: string) => {
+    const targetSchoolId = schoolId || getActiveSchoolId();
+    const filterFn = (list: User[]): User[] => {
+      if (targetSchoolId === 'all') return list;
+      return list.filter(u => {
+        if (targetSchoolId === 'school_dublin_east') {
+          return (u.schoolId === 'school_dublin_east' || !u.schoolId) && u.role !== 'super_admin';
+        }
+        return u.schoolId === targetSchoolId;
+      });
+    };
+
     if (isLocalOffline) {
-      const getFiltered = () => !schoolId 
-        ? db.getUsers() 
-        : db.getUsers().filter(u => !u.schoolId || u.schoolId === schoolId || u.role === 'super_admin');
-      
-      callback(getFiltered());
-      const handler = () => callback(getFiltered());
+      callback(filterFn(db.getUsers()));
+      const handler = () => callback(filterFn(db.getUsers()));
       localDbEmitter.addEventListener('users', handler);
       return () => localDbEmitter.removeEventListener('users', handler);
     }
@@ -883,26 +914,18 @@ export const db = {
 
           cachedUsers = list;
           localStorage.setItem(USERS_KEY, JSON.stringify(list));
-          if (!schoolId) {
-            callback(list);
-          } else {
-            callback(list.filter(u => !u.schoolId || u.schoolId === schoolId || u.role === 'super_admin'));
-          }
+          callback(filterFn(list));
         } else {
           const activeDefaults = defaultUsers.filter(u => !isUserDeleted(u.id) && !isUserDeleted(u.username));
-          if (!schoolId) {
-            callback(activeDefaults);
-          } else {
-            callback(activeDefaults.filter(u => !u.schoolId || u.schoolId === schoolId || u.role === 'super_admin'));
-          }
+          callback(filterFn(activeDefaults));
         }
       }, (err) => {
         console.warn('Users onSnapshot error:', err);
-        callback(db.getUsers(schoolId));
+        callback(db.getUsers(targetSchoolId));
       });
     } catch (e) {
       console.warn('Users subscribe failed:', e);
-      callback(db.getUsers(schoolId));
+      callback(db.getUsers(targetSchoolId));
       return () => {};
     }
   },

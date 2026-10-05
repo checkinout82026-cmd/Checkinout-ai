@@ -3,6 +3,7 @@ import { db } from '../lib/db';
 import { User, Student } from '../types';
 import { auth } from '../lib/firebase';
 import { CONFIGURED_ACCOUNTS } from '../lib/auth';
+import { getActiveSchoolId } from '../lib/tenantContext';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import toast from 'react-hot-toast';
 import { ShieldCheck, Lock, X, CheckCircle2, AlertTriangle, Loader2, Eye, EyeOff } from 'lucide-react';
@@ -47,8 +48,9 @@ export function StaffApprovalModal({
       setSelectedStaffId(current => current && approvers.some(u => u.id === current) ? current : approvers[0]?.id || '');
     };
 
-    applyUsers(db.getUsers());
-    db.loadUsersFromFirestore().then(applyUsers);
+    const activeSchoolId = getActiveSchoolId();
+    applyUsers(db.getUsers(activeSchoolId));
+    db.loadUsersFromFirestore(activeSchoolId).then(applyUsers);
 
     return () => {
       isMounted = false;

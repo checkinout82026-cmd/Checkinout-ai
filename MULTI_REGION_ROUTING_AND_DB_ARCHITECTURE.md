@@ -59,6 +59,12 @@ All administrators and center staff from **all regions** are stored in a single,
 - **Instant Authentication**: Staff enter their username/password; the database resolves their account in **1 single read** ($O(1)$).
 - **No Multi-Table Guessing**: The system never has to scan multiple tables to determine which school the user belongs to.
 - **SuperAdmin Support**: Central administrators can access any campus dashboard from a single account.
+- **Strict School-Scoped Management**:
+  - In **Manage Staff & Admins**, center administrators only see and manage staff members of **their own school/region**. They cannot see or modify staff from other centers or central `super_admin` accounts.
+  - In **Attendance** records and student pickup approval modals, staff selector dropdowns are strictly isolated to the active campus.
+  - New staff accounts created by an admin are automatically bound to that admin's `schoolId`.
+  - Campus admins are protected against accidental lockout (an admin cannot delete the sole remaining administrator for their campus).
+  - Central `super_admin` accounts have a multi-campus filter to review and manage accounts across all campuses or by individual center.
 
 ### B. Dedicated Regional Student & Attendance Tables
 Rather than mixing all students into one table with a filter, each non-default region has its own physically distinct collection in Cloud Firestore:
