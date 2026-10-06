@@ -112,14 +112,16 @@ async function runMigration() {
     const uLower = (data.username || '').toLowerCase();
     const nameLower = (data.name || '').toLowerCase();
 
-    if (uLower === 'sanjay' || nameLower.includes('sanjay') || uLower === 'weststaff') {
+    if (uLower === 'westadmin' || uLower === 'weststaff') {
       if (data.schoolId !== 'school_dublin_west') {
         userUpdates.push({ id: d.id, data: { schoolId: 'school_dublin_west' } });
       }
     } else if (uLower === 'superadmin') {
       // Super admin remains cross-school (schoolId: null/undefined)
-    } else if (!data.schoolId) {
-      userUpdates.push({ id: d.id, data: { schoolId: 'school_dublin_east' } });
+    } else if (!data.schoolId || uLower === 'sanjay' || nameLower.includes('sanjay')) {
+      if (data.schoolId !== 'school_dublin_east') {
+        userUpdates.push({ id: d.id, data: { schoolId: 'school_dublin_east' } });
+      }
     }
   });
   console.log(`Total users in DB: ${usersSnap.size}`);

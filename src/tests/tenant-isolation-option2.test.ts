@@ -163,8 +163,8 @@ describe('Option 2: Separate Subdomain / Dashboard Per School', () => {
       // Set active campus to Dublin East
       setSimulatedHostname('dublin-east.localhost:3000');
 
-      // Attempt login with Dublin West admin credentials (Sanjay) on Dublin East portal
-      await expect(signInWithEmail('Sanjay', 'Oh43016')).rejects.toThrow(
+      // Attempt login with Dublin West admin credentials (WestAdmin) on Dublin East portal
+      await expect(signInWithEmail('WestAdmin', 'Oh43016')).rejects.toThrow(
         /This account is registered with/i
       );
 
@@ -172,6 +172,10 @@ describe('Option 2: Separate Subdomain / Dashboard Per School', () => {
       await expect(signInWithEmail('WestStaff', 'Oh43017')).rejects.toThrow(
         /This account is registered with/i
       );
+
+      // Sanjay is Dublin East admin and succeeds on Dublin East portal
+      const sanjayEast = await signInWithEmail('Sanjay', 'Oh43016');
+      expect(sanjayEast.schoolId).toBe('school_dublin_east');
 
       // Now switch active campus to Dublin West
       setSimulatedHostname('dublin-west.localhost:3000');

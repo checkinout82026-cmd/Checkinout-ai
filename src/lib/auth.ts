@@ -39,9 +39,18 @@ export const CONFIGURED_ACCOUNTS: ConfiguredAccount[] = [
     username: 'Sanjay',
     role: 'admin',
     name: 'Sanjay',
-    fullName: 'Sanjay (Dublin - West Admin)',
+    fullName: 'Sanjay',
     password: 'Oh43016',
     email: 'sanjay@school.org',
+    schoolId: 'school_dublin_east'
+  },
+  {
+    username: 'WestAdmin',
+    role: 'admin',
+    name: 'WestAdmin',
+    fullName: 'Center Admin (Dublin - West)',
+    password: 'Oh43016',
+    email: 'westadmin@school.org',
     schoolId: 'school_dublin_west'
   },
   {

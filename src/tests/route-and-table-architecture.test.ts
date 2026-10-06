@@ -181,7 +181,7 @@ describe('Multi-Region Route-Based and Dedicated Table Architecture', () => {
       expect(sanRamonUsers.some(u => u.username === 'Sanjay')).toBe(false);
     });
 
-    it('returns only Dublin East staff/admins for school_dublin_east', () => {
+    it('returns only Dublin East staff/admins for school_dublin_east including Sanjay', () => {
       const dublinEastUsers = db.getUsers('school_dublin_east');
       expect(dublinEastUsers.length).toBeGreaterThan(0);
       dublinEastUsers.forEach(u => {
@@ -190,10 +190,27 @@ describe('Multi-Region Route-Based and Dedicated Table Architecture', () => {
 
       expect(dublinEastUsers.some(u => u.username === 'Ajita')).toBe(true);
       expect(dublinEastUsers.some(u => u.username === 'CenterStaff')).toBe(true);
+      expect(dublinEastUsers.some(u => u.username === 'Sanjay')).toBe(true);
 
       expect(dublinEastUsers.some(u => u.username === 'PleasantonAdmin')).toBe(false);
       expect(dublinEastUsers.some(u => u.username === 'SanRamonAdmin')).toBe(false);
       expect(dublinEastUsers.some(u => u.username === 'WestStaff')).toBe(false);
+      expect(dublinEastUsers.some(u => u.username === 'WestAdmin')).toBe(false);
+    });
+
+    it('returns only Dublin West staff/admins for school_dublin_west with WestAdmin', () => {
+      const dublinWestUsers = db.getUsers('school_dublin_west');
+      expect(dublinWestUsers.length).toBeGreaterThan(0);
+      dublinWestUsers.forEach(u => {
+        expect(u.schoolId).toBe('school_dublin_west');
+      });
+
+      expect(dublinWestUsers.some(u => u.username === 'WestAdmin')).toBe(true);
+      expect(dublinWestUsers.some(u => u.username === 'WestStaff')).toBe(true);
+
+      // Sanjay must NOT be in Dublin West
+      expect(dublinWestUsers.some(u => u.username === 'Sanjay')).toBe(false);
+      expect(dublinWestUsers.some(u => u.username === 'Ajita')).toBe(false);
     });
 
     it('delivers isolated users for active campus via db.subscribeUsers', () => {
