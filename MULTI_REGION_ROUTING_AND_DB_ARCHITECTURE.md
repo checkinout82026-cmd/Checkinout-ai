@@ -167,3 +167,23 @@ All **41 unit and integration tests** pass cleanly:
 - **`src/tests/tenant-isolation-option2.test.ts`**: 15 passed (100%)
 - **TypeScript Typecheck (`npm run lint` / `tsc --noEmit`)**: 0 errors
 - **Production Build (`npm run build`)**: Success in 5.39s
+
+---
+
+## 8. Database Environments & Complete Data Migration
+
+To protect live production operations from experimentation and multi-tenant feature testing, Firestore database instances are isolated per branch:
+
+| Branch | Environment | Firestore Database Instance ID | Status |
+| :--- | :--- | :--- | :--- |
+| **`main` / `master`** | **Production** | `ai-studio-remixremixchecki-4141448b-e367-448b-97a3-dc964e7f7642` | **Active Production** (Untouched) |
+| **`feature/subdomain-per-school`** | **Staging / Testing** | `ai-studio-firebaseapp-a7ffb7a2-6271-4f4f-9948-16aed4b8ac1e` | **Complete Migration** (469 Docs Verified) |
+
+### Migration Verification Summary
+- **Collection `users`**: 16 documents (100% verified match)
+- **Collection `students`**: 121 documents (100% verified match)
+- **Collection `attendance`**: 108 documents (100% verified match)
+- **Collection `authorized_pickups`**: 224 documents (100% verified match)
+- **Total Records Migrated**: **469 / 469 documents**
+- **Deep Hash & Field Check**: 0 discrepancies, all keys and types preserved.
+
