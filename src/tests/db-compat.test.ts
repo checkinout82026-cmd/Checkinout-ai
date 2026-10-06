@@ -79,10 +79,15 @@ describe('Main Branch Database Compatibility (Dublin East Scoping)', () => {
     expect(saved?.schoolId).toBe('school_dublin_east');
   });
 
-  it('rejects login attempts using Dublin West credentials', async () => {
-    // Sanjay is configured as Dublin West admin
-    await expect(signInWithEmail('Sanjay', 'Oh43016')).rejects.toThrow(
+  it('rejects login attempts using Dublin West credentials and allows Sanjay for Dublin East', async () => {
+    // WestStaff is configured as Dublin West
+    await expect(signInWithEmail('WestStaff', 'Oh43017')).rejects.toThrow(
       /This account belongs to Dublin - West/i
     );
+
+    // Sanjay is Dublin East admin and logs in successfully
+    const sanjay = await signInWithEmail('Sanjay', 'Oh43016');
+    expect(sanjay).toBeDefined();
+    expect(sanjay.schoolId).toBe('school_dublin_east');
   });
 });

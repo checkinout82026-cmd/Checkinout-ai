@@ -68,6 +68,19 @@ export const defaultUsers: User[] = [
     createdAt: new Date().toISOString(), 
     updatedAt: new Date().toISOString() 
   },
+  { 
+    id: 'admin_sanjay', 
+    username: 'Sanjay', 
+    role: 'admin', 
+    name: 'Sanjay', 
+    fullName: 'Sanjay', 
+    email: 'sanjay@school.org', 
+    phone: '', 
+    schoolId: DUBLIN_EAST_ID,
+    isActive: true, 
+    createdAt: new Date().toISOString(), 
+    updatedAt: new Date().toISOString() 
+  },
   {
     id: 'staff_centerstaff',
     username: 'CenterStaff',
