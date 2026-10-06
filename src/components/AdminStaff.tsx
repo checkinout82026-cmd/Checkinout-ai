@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../lib/db';
+import { db, deduplicateUsers } from '../lib/db';
 import { registerStaffOrAdmin, CONFIGURED_ACCOUNTS } from '../lib/auth';
 import { School, User, Role } from '../types';
 import { getActiveSchool, getActiveSchoolId, getAllSchools } from '../lib/tenantContext';
@@ -65,7 +65,8 @@ export function AdminStaff({ currentUser, school }: AdminStaffProps) {
     );
   };
 
-  const activeAdminCount = staffList.filter(u => u.role === 'admin' && u.isActive !== false).length;
+  const displayedStaff = deduplicateUsers(staffList).filter(u => u.role !== 'student');
+  const activeAdminCount = displayedStaff.filter(u => u.role === 'admin' && u.isActive !== false).length;
 
   // Form state for creating user (no phone, no email)
   const [name, setName] = useState('');
@@ -272,7 +273,7 @@ export function AdminStaff({ currentUser, school }: AdminStaffProps) {
               {activeSchool.subtitle || activeSchool.name}
             </span>
             <span className="px-2.5 py-0.5 text-xs font-semibold bg-[#5c869e]/15 text-[#4b6573] rounded-full">
-              {staffList.filter(u => u.role !== 'student').length} Accounts
+              {displayedStaff.length} Accounts
             </span>
           </div>
           <p className="text-[#8c8a86] mt-1 text-sm">
@@ -535,7 +536,7 @@ export function AdminStaff({ currentUser, school }: AdminStaffProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#f2efe9] text-sm">
-              {staffList.filter(u => u.role !== 'student').map(s => (
+              {displayedStaff.map(s => (
                 <tr key={s.id} className="hover:bg-[#e8f2f8]/50 transition-colors text-[#3c3c3b]">
                   <td className="px-8 py-4">
                     <div className="font-semibold text-[#3c3c3b] flex items-center gap-2">

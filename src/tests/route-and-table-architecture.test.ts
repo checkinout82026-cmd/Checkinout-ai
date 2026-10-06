@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { db, getCollectionName } from '../lib/db';
+import { db, getCollectionName, deduplicateUsers } from '../lib/db';
 import { 
   parseAppRoute, 
   extractSlugFromPath, 
@@ -259,6 +259,35 @@ describe('Multi-Region Route-Based and Dedicated Table Architecture', () => {
       await expect(db.deleteUser(pleasantonAdmin!.id)).rejects.toThrow(
         /Cannot delete the last remaining administrator account/
       );
+    });
+
+    it('authenticates WestAdmin and guarantees schoolId is strictly school_dublin_west', async () => {
+      const westAdmin = await signInWithEmail('WestAdmin', 'Oh43016');
+      expect(westAdmin).toBeDefined();
+      expect(westAdmin.schoolId).toBe('school_dublin_west');
+      expect(westAdmin.role).toBe('admin');
+    });
+
+    it('deduplicates users and guarantees no double entries exist in any region', () => {
+      const allRegions = ['school_dublin_east', 'school_dublin_west', 'school_pleasanton', 'school_san_ramon'];
+
+      for (const regionId of allRegions) {
+        const staff = db.getUsers(regionId);
+        const usernames = staff.map(u => (u.username || '').toLowerCase().trim());
+        const uniqueUsernames = new Set(usernames);
+
+        // Assert no duplicate usernames exist in the staff list for this region
+        expect(usernames.length).toBe(uniqueUsernames.size);
+      }
+
+      // Verify deduplicateUsers collapses fallback IDs with Firebase Auth UIDs
+      const mockRawList = [
+        { id: 'uid_real_123', username: 'TestAdmin', name: 'Real Admin', role: 'admin' as const, schoolId: 'school_dublin_west' },
+        { id: 'admin_testadmin', username: 'TestAdmin', name: 'Fallback Admin', role: 'admin' as const, schoolId: 'school_dublin_west' }
+      ];
+      const deduped = deduplicateUsers(mockRawList);
+      expect(deduped.length).toBe(1);
+      expect(deduped[0].id).toBe('uid_real_123');
     });
   });
 });

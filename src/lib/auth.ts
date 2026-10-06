@@ -214,7 +214,7 @@ export async function signInWithEmail(
         u.username?.toLowerCase() === cleanInput.toLowerCase() ||
         u.email?.toLowerCase() === cleanInput.toLowerCase()
       );
-      const schoolId = existing?.schoolId || configuredMatch.schoolId;
+      const schoolId = configuredMatch.schoolId || existing?.schoolId;
       if (effectiveTargetSchool && !isUserAuthorizedForSchool({ schoolId, role: configuredMatch.role }, effectiveTargetSchool)) {
         const userSchool = getSchoolById(schoolId);
         const schoolName = userSchool?.name || 'another school';
@@ -268,8 +268,8 @@ export async function signInWithEmail(
     u.id?.toLowerCase() === cleanInput.toLowerCase()
   );
 
-  const preliminarySchoolId = match?.schoolId || configuredMatch?.schoolId;
-  const preliminaryRole = match?.role || configuredMatch?.role;
+  const preliminarySchoolId = configuredMatch?.schoolId || match?.schoolId;
+  const preliminaryRole = configuredMatch?.role || match?.role;
 
   // PRE-AUTH CHECK: Only enforce when signing in to an explicitly target-locked school
   if (effectiveTargetSchool && preliminarySchoolId && !isUserAuthorizedForSchool({ schoolId: preliminarySchoolId, role: preliminaryRole }, effectiveTargetSchool)) {
@@ -294,11 +294,21 @@ export async function signInWithEmail(
   try {
     const userCredential = await signInWithEmailAndPassword(auth, emailToUse, password);
     const appUser = await getAppUserFromFirebase(userCredential.user);
+    const targetSchoolId = configuredMatch?.schoolId || match?.schoolId || appUser.schoolId;
     const resolvedUser: User = {
       ...appUser,
       username: match?.username || configuredMatch?.username || appUser.username,
-      schoolId: match?.schoolId || configuredMatch?.schoolId || appUser.schoolId
+      schoolId: targetSchoolId
     };
+
+    // Self-heal Firestore document if it had an outdated schoolId
+    if (configuredMatch?.schoolId && appUser.id && appUser.schoolId !== configuredMatch.schoolId) {
+      setDoc(doc(firestore, 'users', appUser.id), { 
+        schoolId: configuredMatch.schoolId,
+        fullName: configuredMatch.fullName,
+        name: configuredMatch.name
+      }, { merge: true }).catch(() => {});
+    }
 
     // POST-AUTH CHECK: Only enforce when signing in to an explicitly target-locked school
     if (effectiveTargetSchool && !isUserAuthorizedForSchool(resolvedUser, effectiveTargetSchool)) {
@@ -347,7 +357,7 @@ export async function signInWithEmail(
         email: configuredMatch.email,
         phone: '',
         role: configuredMatch.role,
-        schoolId: match?.schoolId || configuredMatch.schoolId,
+        schoolId: configuredMatch.schoolId || match?.schoolId,
         isActive: true,
         createdAt: match?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -426,25 +436,40 @@ export async function autoProvisionConfiguredAccounts(): Promise<void> {
       await setDoc(doc(firestore, 'users', cred.user.uid), userDoc, { merge: true });
       await db.saveUser(userDoc);
     } catch (err: any) {
-      // Ignore if user already exists or operation not allowed in Firebase
-      // But ensure document exists in Firestore and db
+      // If user already exists in Firebase Auth or operation is not allowed:
+      // Ensure the user's Firestore document has the correct schoolId without creating duplicates
       try {
-        const docId = acc.role === 'admin' ? `admin_${acc.username.toLowerCase()}` : `staff_${acc.username.toLowerCase()}`;
-        const userDoc: User = {
-          id: docId,
-          username: acc.username,
-          name: acc.name,
-          fullName: acc.fullName,
-          email: acc.email,
-          phone: '',
-          role: acc.role,
-          schoolId: acc.schoolId,
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
-        await setDoc(doc(firestore, 'users', docId), userDoc, { merge: true });
-        await db.saveUser(userDoc);
+        const allUsers = await db.loadUsersFromFirestore();
+        const existing = allUsers.find(u => 
+          u.email?.toLowerCase() === acc.email.toLowerCase() ||
+          u.username?.toLowerCase() === acc.username.toLowerCase()
+        );
+        if (existing) {
+          if (acc.schoolId && existing.schoolId !== acc.schoolId) {
+            await setDoc(doc(firestore, 'users', existing.id), {
+              schoolId: acc.schoolId,
+              fullName: acc.fullName,
+              name: acc.name
+            }, { merge: true });
+          }
+        } else {
+          const docId = acc.role === 'admin' ? `admin_${acc.username.toLowerCase()}` : `staff_${acc.username.toLowerCase()}`;
+          const userDoc: User = {
+            id: docId,
+            username: acc.username,
+            name: acc.name,
+            fullName: acc.fullName,
+            email: acc.email,
+            phone: '',
+            role: acc.role,
+            schoolId: acc.schoolId,
+            isActive: true,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+          await setDoc(doc(firestore, 'users', docId), userDoc, { merge: true });
+          await db.saveUser(userDoc);
+        }
       } catch {}
     }
   }
