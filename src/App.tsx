@@ -275,7 +275,7 @@ export default function App() {
         switch (activeTab) {
           case 'attendance': return <AdminAttendance />;
           case 'checkedin': return <CheckedInList />;
-          case 'students': return <AdminStudents />;
+          case 'students': return <AdminStudents school={matchedSchool} />;
           case 'staff': return <AdminStaff currentUser={user} school={matchedSchool} />;
           default: return <AdminAttendance />;
         }

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { db, getCollectionName, deduplicateUsers } from '../lib/db';
+import { db, getCollectionName, deduplicateUsers, deduplicateStudents } from '../lib/db';
 import { 
   parseAppRoute, 
   extractSlugFromPath, 
@@ -288,6 +288,110 @@ describe('Multi-Region Route-Based and Dedicated Table Architecture', () => {
       const deduped = deduplicateUsers(mockRawList);
       expect(deduped.length).toBe(1);
       expect(deduped[0].id).toBe('uid_real_123');
+    });
+  });
+
+  describe('6. Student Deduplication & Manage Students Roster Isolation', () => {
+    it('deduplicates students by canonical ID and prefers richer details', () => {
+      const mockStudents = [
+        {
+          id: '20001',
+          schoolId: 'school_dublin_west',
+          name: 'Leo Garcia',
+          fullName: 'Leo Garcia',
+          gradeLevel: 'Kumon Student',
+          parent: { name: 'Carlos Garcia', phone: '555-0202', email: 'carlos.garcia@example.com' },
+          parentName: 'Carlos Garcia',
+          parentPhone: '555-0202',
+          parentEmail: 'carlos.garcia@example.com',
+          authorizedPickups: ['Carlos Garcia'],
+          authorizedPickupDetails: [],
+          notes: '',
+          isActive: true
+        },
+        {
+          id: '20001',
+          schoolId: 'school_dublin_west',
+          name: 'Leo Garcia',
+          fullName: 'Leo Garcia',
+          gradeLevel: 'Kumon Student',
+          parent: { name: 'Carlos Garcia', phone: '555-0202', email: 'carlos.garcia@example.com' },
+          parentName: 'Carlos Garcia',
+          parentPhone: '555-0202',
+          parentEmail: 'carlos.garcia@example.com',
+          authorizedPickups: ['Carlos Garcia', 'Maria Garcia'],
+          authorizedPickupDetails: [
+            { name: 'Carlos Garcia', relationship: 'Father', phone: '555-0202', isPrimary: true },
+            { name: 'Maria Garcia', relationship: 'Mother', phone: '555-0203', isPrimary: false }
+          ],
+          notes: 'West Campus Student - Nut allergy',
+          isActive: true
+        }
+      ];
+
+      const deduped = deduplicateStudents(mockStudents as any);
+      expect(deduped.length).toBe(1);
+      expect(deduped[0].id).toBe('20001');
+      expect(deduped[0].notes).toBe('West Campus Student - Nut allergy');
+      expect(deduped[0].authorizedPickups?.length).toBe(2);
+    });
+
+    it('deduplicates students with identical name in the same school', () => {
+      const duplicateNamed = [
+        {
+          id: 'temp_1',
+          schoolId: 'school_dublin_west',
+          name: 'Maya Lin',
+          fullName: 'Maya Lin',
+          parent: { name: 'Helen Lin', phone: '555-0212', email: 'helen.lin@example.com' },
+          parentName: 'Helen Lin',
+          parentPhone: '555-0212',
+          parentEmail: 'helen.lin@example.com',
+          authorizedPickups: ['Helen Lin'],
+          isActive: true
+        },
+        {
+          id: '20002',
+          schoolId: 'school_dublin_west',
+          name: 'Maya Lin',
+          fullName: 'Maya Lin',
+          parent: { name: 'Helen Lin', phone: '555-0212', email: 'helen.lin@example.com' },
+          parentName: 'Helen Lin',
+          parentPhone: '555-0212',
+          parentEmail: 'helen.lin@example.com',
+          authorizedPickups: ['Helen Lin'],
+          notes: 'West Campus Student',
+          isActive: true
+        }
+      ];
+
+      const deduped = deduplicateStudents(duplicateNamed as any);
+      expect(deduped.length).toBe(1);
+      expect(deduped[0].name).toBe('Maya Lin');
+    });
+
+    it('guarantees zero duplicate students in Dublin West and across all campuses', () => {
+      const campuses = ['school_dublin_east', 'school_dublin_west', 'school_pleasanton', 'school_san_ramon'];
+
+      for (const campusId of campuses) {
+        const roster = db.getStudents(campusId);
+        expect(roster.length).toBeGreaterThan(0);
+
+        const ids = roster.map(s => s.id);
+        const uniqueIds = new Set(ids);
+        expect(ids.length).toBe(uniqueIds.size);
+
+        const names = roster.map(s => (s.name || s.fullName || '').toLowerCase().trim());
+        const uniqueNames = new Set(names);
+        expect(names.length).toBe(uniqueNames.size);
+      }
+    });
+
+    it('returns exactly 8 students for Dublin West with no duplicates', () => {
+      const westStudents = db.getStudents('school_dublin_west');
+      expect(westStudents.length).toBe(8);
+      const studentIds = westStudents.map(s => s.id);
+      expect(studentIds).toEqual(['20001', '20002', '20003', '20004', '20005', '20006', '20007', '20008']);
     });
   });
 });

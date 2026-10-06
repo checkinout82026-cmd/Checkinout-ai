@@ -9,19 +9,19 @@ service cloud.firestore {
       allow delete: if true;
     }
     
-    // Students Collection
-    match /students/{studentId} {
-      allow read, write, delete: if true;
+    // Students Collections (root and regional tables)
+    match /{studentCol}/{studentId} {
+      allow read, write, delete: if studentCol == 'students' || studentCol.matches('^students_.*');
     }
     
-    // Authorized Pickups Collection
-    match /authorized_pickups/{pickupId} {
-      allow read, write, delete: if true;
+    // Authorized Pickups Collections (root and regional tables)
+    match /{pickupCol}/{pickupId} {
+      allow read, write, delete: if pickupCol == 'authorized_pickups' || pickupCol.matches('^authorized_pickups_.*');
     }
     
-    // Attendance Records Collection
-    match /attendance/{recordId} {
-      allow read, write, delete: if true;
+    // Attendance Records Collections (root and regional tables)
+    match /{attCol}/{recordId} {
+      allow read, write, delete: if attCol == 'attendance' || attCol.matches('^attendance_.*');
     }
 
     // Schools Collection

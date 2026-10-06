@@ -9,7 +9,7 @@ import {
   updateProfile,
   User as FirebaseUser
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { auth, firestore, isLocalOffline } from './firebase';
 import { User, Role } from '../types';
 import { db, isUserDeleted } from './db';
@@ -445,6 +445,10 @@ export async function autoProvisionConfiguredAccounts(): Promise<void> {
           u.username?.toLowerCase() === acc.username.toLowerCase()
         );
         if (existing) {
+          const fallbackDocId = acc.role === 'admin' ? `admin_${acc.username.toLowerCase()}` : `staff_${acc.username.toLowerCase()}`;
+          if (existing.id !== fallbackDocId) {
+            deleteDoc(doc(firestore, 'users', fallbackDocId)).catch(() => {});
+          }
           if (acc.schoolId && existing.schoolId !== acc.schoolId) {
             await setDoc(doc(firestore, 'users', existing.id), {
               schoolId: acc.schoolId,

@@ -1,12 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../lib/db';
-import { Student } from '../types';
+import { db, deduplicateStudents } from '../lib/db';
+import { Student, School } from '../types';
+import { getActiveSchool, getActiveSchoolId } from '../lib/tenantContext';
 import { parseStudentCSV } from '../lib/csvParser';
 import { formatPhoneNumber, sanitizeCsvCell } from '../lib/utils';
 import toast from 'react-hot-toast';
 import { Sparkles, Hash, Search, Upload, Download, FileText, X, Check, ArrowUpDown, ArrowUp, ArrowDown, Trash2, Loader2 } from 'lucide-react';
 
-export function AdminStudents() {
+interface AdminStudentsProps {
+  school?: School;
+}
+
+export function AdminStudents({ school }: AdminStudentsProps = {}) {
+  const activeSchool = school || getActiveSchool();
+  const currentSchoolId = activeSchool?.id || getActiveSchoolId();
+
   const [students, setStudents] = useState<Student[]>([]);
   const [isEditing, setIsEditing] = useState<Student | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -34,14 +42,16 @@ export function AdminStudents() {
   const [notes, setNotes] = useState('');
 
   useEffect(() => {
-    // Initial sync and real-time subscription to Firebase Firestore
+    // Initial sync and real-time subscription to Firebase Firestore scoped by school
     const unsubscribe = db.subscribeStudents((updated) => {
-      setStudents(updated);
-    });
+      setStudents(deduplicateStudents(updated));
+    }, currentSchoolId);
     return () => {
       if (typeof unsubscribe === 'function') unsubscribe();
     };
-  }, []);
+  }, [currentSchoolId]);
+
+  const displayedStudents = deduplicateStudents(students);
 
   const generate12DigitNumeric = () => {
     // Generate a 12-digit numeric ID (does not have to contain alphabet)
@@ -53,7 +63,7 @@ export function AdminStudents() {
         randomDigits += Math.floor(Math.random() * 10).toString();
       }
       newId = prefix + randomDigits;
-    } while (students.some(s => s.id === newId));
+    } while (displayedStudents.some(s => s.id === newId));
     setId(newId);
     toast.success('Generated 12-digit numeric ID', { icon: '🔢' });
   };
@@ -67,7 +77,7 @@ export function AdminStudents() {
       for (let i = 0; i < 12; i++) {
         newId += chars.charAt(Math.floor(Math.random() * chars.length));
       }
-    } while (students.some(s => s.id === newId));
+    } while (displayedStudents.some(s => s.id === newId));
     setId(newId);
     toast.success('Generated 12-character alphanumeric ID', { icon: '✨' });
   };
@@ -103,7 +113,7 @@ export function AdminStudents() {
     }
     setIsImporting(true);
     try {
-      await db.saveStudents(toImport);
+      await db.saveStudents(toImport, currentSchoolId);
       toast.success(`Successfully saved ${toImport.length} students to Firebase!`);
       setShowImportModal(false);
       setImportCsvText('');
@@ -117,12 +127,12 @@ export function AdminStudents() {
   };
 
   const handleExportStudentsCSV = () => {
-    if (students.length === 0) {
+    if (displayedStudents.length === 0) {
       toast.error('No students to export');
       return;
     }
     const headers = ['Student ID', 'Student Name', 'Grade Level', 'Parent Name', 'Primary Phone', 'Secondary Phone', 'Parent Email', 'Authorized Pickups', 'Notes'];
-    const rows = students.map(s => {
+    const rows = displayedStudents.map(s => {
       return [
         sanitizeCsvCell(s.id),
         sanitizeCsvCell(s.name),
@@ -143,7 +153,7 @@ export function AdminStudents() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success(`${students.length} students exported to CSV!`);
+    toast.success(`${displayedStudents.length} students exported to CSV!`);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -158,12 +168,13 @@ export function AdminStudents() {
 
     const studentData: Student = {
       id: finalId,
+      schoolId: currentSchoolId,
       name: name.trim(),
       fullName: name.trim(),
       parent: { 
         name: parentName.trim(), 
         phone: parentPhone.trim(), 
-        phone2: parentPhone2.trim() || undefined,
+        phone2: parentPhone2.trim() || undefined, 
         email: parentEmail.trim() 
       },
       parentName: parentName.trim(),
@@ -175,6 +186,7 @@ export function AdminStudents() {
         name: p,
         relationship: 'Authorized Pickup',
         phone: parentPhone.trim(),
+        schoolId: currentSchoolId,
         isPrimary: false
       })),
       notes: notes.trim(),
@@ -187,7 +199,7 @@ export function AdminStudents() {
       await db.saveStudent(studentData);
       toast.success('Student updated in Firebase');
     } else {
-      if (students.find(s => s.id === finalId)) {
+      if (displayedStudents.find(s => s.id === finalId)) {
         toast.error('Student ID already exists');
         return;
       }
@@ -218,7 +230,7 @@ export function AdminStudents() {
     if (!studentToDelete) return;
     setIsDeletingStudent(true);
     try {
-      await db.deleteStudent(studentToDelete.id);
+      await db.deleteStudent(studentToDelete.id, currentSchoolId);
       toast.success(`Student "${studentToDelete.name}" deleted from database`);
       setStudentToDelete(null);
     } catch (err: any) {
@@ -250,7 +262,7 @@ export function AdminStudents() {
     }
   };
 
-  const filteredStudents = [...students]
+  const filteredStudents = [...displayedStudents]
     .filter(s => {
       const term = searchTerm.toLowerCase().trim();
       if (!term) return true;
@@ -281,7 +293,7 @@ export function AdminStudents() {
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-serif font-semibold text-[#4a4a48]">Manage Students</h1>
             <span className="px-2.5 py-0.5 text-xs font-semibold bg-[#5c869e]/15 text-[#5e705b] rounded-full">
-              {students.length} Students
+              {displayedStudents.length} Students
             </span>
           </div>
           <p className="text-[#8c8a86] mt-1 text-sm">Add, edit, or remove student records with real-time Firebase synchronization.</p>

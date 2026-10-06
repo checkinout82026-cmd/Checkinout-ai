@@ -129,6 +129,62 @@ export function deduplicateUsers(users: User[]): User[] {
   return Array.from(map.values());
 }
 
+export function deduplicateStudents(students: Student[]): Student[] {
+  if (!Array.isArray(students)) return [];
+  const map = new Map<string, Student>();
+  
+  for (const s of students) {
+    if (!s) continue;
+    // Primary key: Student ID (normalized)
+    const rawId = s.id ? String(s.id).trim().toLowerCase() : '';
+    // Secondary key fallback: normalized name + school
+    const rawName = (s.name || s.fullName || '').trim().toLowerCase();
+    const school = (s.schoolId || '').trim().toLowerCase();
+    const key = rawId ? `id:${rawId}` : (rawName ? `name:${school}:${rawName}` : '');
+    if (!key) continue;
+
+    const existing = map.get(key);
+    if (!existing) {
+      map.set(key, s);
+    } else {
+      // Prefer record with richer data
+      const existingDetailsCount = (existing.authorizedPickupDetails?.length || 0) + (existing.authorizedPickups?.length || 0);
+      const incomingDetailsCount = (s.authorizedPickupDetails?.length || 0) + (s.authorizedPickups?.length || 0);
+      const isIncomingRicher = incomingDetailsCount > existingDetailsCount || 
+        (!!s.notes && !existing.notes) ||
+        (!!s.parentPhone && !existing.parentPhone);
+
+      if (isIncomingRicher) {
+        map.set(key, { ...existing, ...s });
+      }
+    }
+  }
+
+  // Secondary deduplication pass by (school, name) to consolidate duplicate roster imports
+  const nameMap = new Map<string, Student>();
+  for (const s of map.values()) {
+    const rawName = (s.name || s.fullName || '').trim().toLowerCase();
+    const school = (s.schoolId || '').trim().toLowerCase();
+    if (rawName && school) {
+      const nameKey = `${school}:${rawName}`;
+      const existing = nameMap.get(nameKey);
+      if (!existing) {
+        nameMap.set(nameKey, s);
+      } else {
+        const existingDetailsCount = (existing.authorizedPickupDetails?.length || 0) + (existing.authorizedPickups?.length || 0);
+        const incomingDetailsCount = (s.authorizedPickupDetails?.length || 0) + (s.authorizedPickups?.length || 0);
+        if (incomingDetailsCount > existingDetailsCount || (s.id && !existing.id)) {
+          nameMap.set(nameKey, { ...existing, ...s });
+        }
+      }
+    } else {
+      nameMap.set(`id:${s.id}`, s);
+    }
+  }
+
+  return Array.from(nameMap.values());
+}
+
 export const defaultUsers: User[] = [
   { 
     id: 'admin_ajita', 
@@ -500,14 +556,60 @@ export const db = {
             updatedAt: data.updatedAt
           });
         });
+        const dedupedList = deduplicateStudents(list);
         const otherSchools = cachedStudents.filter(s => s.schoolId && s.schoolId !== targetSchoolId);
-        cachedStudents = [...otherSchools, ...list];
+        cachedStudents = deduplicateStudents([...otherSchools, ...dedupedList]);
         localStorage.setItem(STUDENTS_KEY, JSON.stringify(cachedStudents));
-        return list;
+        return dedupedList;
       }
       return db.getStudents(targetSchoolId);
-    } catch (err) {
+    } catch (err: any) {
       console.warn('Firestore loadStudents error:', err);
+      // Fallback: If regional collection is denied or fails, query root students collection
+      if ((err?.code === 'permission-denied' || String(err).includes('permission')) && targetSchoolId !== 'school_dublin_east') {
+        try {
+          const rootQ = query(collection(firestore, 'students'), where('schoolId', '==', targetSchoolId));
+          const rootSnap = await getDocs(rootQ);
+          if (!rootSnap.empty) {
+            const list: Student[] = [];
+            rootSnap.forEach(docSnap => {
+              const data = docSnap.data();
+              const pPhone = data.parentPhone || data.parent?.phone || '';
+              const pPhone2 = data.parentPhone2 || data.parent?.phone2 || '';
+              list.push({
+                id: data.id || docSnap.id,
+                schoolId: data.schoolId || targetSchoolId,
+                name: data.name || data.fullName || '',
+                fullName: data.fullName || data.name || '',
+                gradeLevel: data.gradeLevel || '',
+                parent: data.parent || { 
+                  name: data.parentName || '', 
+                  phone: pPhone, 
+                  phone2: pPhone2, 
+                  email: data.parentEmail || '' 
+                },
+                parentName: data.parentName || data.parent?.name || '',
+                parentPhone: pPhone,
+                parentPhone2: pPhone2,
+                parentEmail: data.parentEmail || data.parent?.email || '',
+                authorizedPickups: data.authorizedPickups || [],
+                authorizedPickupDetails: data.authorizedPickupDetails || [],
+                notes: data.notes || '',
+                isActive: data.isActive !== undefined ? data.isActive : true,
+                createdAt: data.createdAt,
+                updatedAt: data.updatedAt
+              });
+            });
+            const dedupedList = deduplicateStudents(list);
+            const otherSchools = cachedStudents.filter(s => s.schoolId && s.schoolId !== targetSchoolId);
+            cachedStudents = deduplicateStudents([...otherSchools, ...dedupedList]);
+            localStorage.setItem(STUDENTS_KEY, JSON.stringify(cachedStudents));
+            return dedupedList;
+          }
+        } catch (rootErr) {
+          console.warn('Root students fallback query notice:', rootErr);
+        }
+      }
       return db.getStudents(targetSchoolId);
     }
   },
@@ -517,14 +619,17 @@ export const db = {
     const data = localStorage.getItem(STUDENTS_KEY);
     if (data) {
       try {
-        cachedStudents = JSON.parse(data);
+        const parsed = JSON.parse(data);
+        if (Array.isArray(parsed)) {
+          cachedStudents = deduplicateStudents(parsed);
+        }
       } catch (e) {
         console.error('Error parsing cached students', e);
       }
     }
-    const filtered = cachedStudents.filter(s => s.schoolId === targetSchoolId);
+    const filtered = deduplicateStudents(cachedStudents.filter(s => s.schoolId === targetSchoolId));
     if (filtered.length > 0) return filtered;
-    return getSeedStudentsForSchool(targetSchoolId);
+    return deduplicateStudents(getSeedStudentsForSchool(targetSchoolId));
   },
 
   saveStudents: async (students: Student[], schoolId?: string) => {
@@ -538,9 +643,10 @@ export const db = {
         schoolId: p.schoolId || targetSchoolId
       }))
     }));
-    const stampedIds = new Set(stampedStudents.map(s => s.id));
+    const dedupedIncoming = deduplicateStudents(stampedStudents);
+    const stampedIds = new Set(dedupedIncoming.map(s => s.id));
     const retained = cachedStudents.filter(s => !stampedIds.has(s.id));
-    cachedStudents = [...retained, ...stampedStudents];
+    cachedStudents = deduplicateStudents([...retained, ...dedupedIncoming]);
     localStorage.setItem(STUDENTS_KEY, JSON.stringify(cachedStudents));
     notifyLocalDbChange('students');
     if (isLocalOffline) return;
@@ -548,8 +654,8 @@ export const db = {
     try {
       // Chunk batches in sets of 200 for Firestore safety
       const chunkSize = 200;
-      for (let i = 0; i < stampedStudents.length; i += chunkSize) {
-        const chunk = stampedStudents.slice(i, i + chunkSize);
+      for (let i = 0; i < dedupedIncoming.length; i += chunkSize) {
+        const chunk = dedupedIncoming.slice(i, i + chunkSize);
         const batch = writeBatch(firestore);
         chunk.forEach(s => {
           const ref = doc(firestore, targetCollection, s.id);
@@ -582,8 +688,45 @@ export const db = {
         });
         await batch.commit();
       }
-    } catch (err) {
+    } catch (err: any) {
       console.warn('Firestore saveStudents error:', err);
+      if (err?.code === 'permission-denied' && targetSchoolId !== 'school_dublin_east') {
+        try {
+          const batch = writeBatch(firestore);
+          dedupedIncoming.forEach(s => {
+            const ref = doc(firestore, 'students', s.id);
+            const pPhone = s.parentPhone || s.parent?.phone || '';
+            const pPhone2 = s.parentPhone2 || s.parent?.phone2 || '';
+            batch.set(ref, {
+              id: s.id,
+              userId: s.userId || null,
+              schoolId: s.schoolId,
+              name: s.name || s.fullName || '',
+              fullName: s.fullName || s.name || '',
+              gradeLevel: s.gradeLevel || '',
+              parentName: s.parentName || s.parent?.name || '',
+              parentPhone: pPhone,
+              parentPhone2: pPhone2,
+              parentEmail: s.parentEmail || s.parent?.email || '',
+              parent: {
+                name: s.parent?.name || s.parentName || '',
+                phone: pPhone,
+                phone2: pPhone2,
+                email: s.parent?.email || s.parentEmail || ''
+              },
+              authorizedPickups: s.authorizedPickups || [],
+              authorizedPickupDetails: s.authorizedPickupDetails || [],
+              notes: s.notes || '',
+              isActive: s.isActive !== undefined ? s.isActive : true,
+              createdAt: s.createdAt || new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            }, { merge: true });
+          });
+          await batch.commit();
+        } catch (e2) {
+          console.warn('Fallback root saveStudents notice:', e2);
+        }
+      }
     }
   },
 
@@ -606,42 +749,52 @@ export const db = {
     } else {
       updated = [...current, finalStudent];
     }
-    cachedStudents = updated;
-    localStorage.setItem(STUDENTS_KEY, JSON.stringify(updated));
+    cachedStudents = deduplicateStudents(updated);
+    localStorage.setItem(STUDENTS_KEY, JSON.stringify(cachedStudents));
     notifyLocalDbChange('students');
     if (isLocalOffline) return;
+
+    const pPhone = finalStudent.parentPhone || finalStudent.parent?.phone || '';
+    const pPhone2 = finalStudent.parentPhone2 || finalStudent.parent?.phone2 || '';
+    const payload = {
+      id: finalStudent.id,
+      userId: finalStudent.userId || null,
+      schoolId: finalStudent.schoolId,
+      name: finalStudent.name || finalStudent.fullName || '',
+      fullName: finalStudent.fullName || finalStudent.name || '',
+      gradeLevel: finalStudent.gradeLevel || '',
+      parentName: finalStudent.parentName || finalStudent.parent?.name || '',
+      parentPhone: pPhone,
+      parentPhone2: pPhone2,
+      parentEmail: finalStudent.parentEmail || finalStudent.parent?.email || '',
+      parent: {
+        name: finalStudent.parent?.name || finalStudent.parentName || '',
+        phone: pPhone,
+        phone2: pPhone2,
+        email: finalStudent.parent?.email || finalStudent.parentEmail || ''
+      },
+      authorizedPickups: finalStudent.authorizedPickups || [],
+      authorizedPickupDetails: finalStudent.authorizedPickupDetails || [],
+      notes: finalStudent.notes || '',
+      isActive: finalStudent.isActive !== undefined ? finalStudent.isActive : true,
+      createdAt: finalStudent.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
 
     try {
       const targetCollection = getCollectionName('students', targetSchoolId);
       const ref = doc(firestore, targetCollection, finalStudent.id);
-      const pPhone = finalStudent.parentPhone || finalStudent.parent?.phone || '';
-      const pPhone2 = finalStudent.parentPhone2 || finalStudent.parent?.phone2 || '';
-      await setDoc(ref, {
-        id: finalStudent.id,
-        userId: finalStudent.userId || null,
-        schoolId: finalStudent.schoolId,
-        name: finalStudent.name || finalStudent.fullName || '',
-        fullName: finalStudent.fullName || finalStudent.name || '',
-        gradeLevel: finalStudent.gradeLevel || '',
-        parentName: finalStudent.parentName || finalStudent.parent?.name || '',
-        parentPhone: pPhone,
-        parentPhone2: pPhone2,
-        parentEmail: finalStudent.parentEmail || finalStudent.parent?.email || '',
-        parent: {
-          name: finalStudent.parent?.name || finalStudent.parentName || '',
-          phone: pPhone,
-          phone2: pPhone2,
-          email: finalStudent.parent?.email || finalStudent.parentEmail || ''
-        },
-        authorizedPickups: finalStudent.authorizedPickups || [],
-        authorizedPickupDetails: finalStudent.authorizedPickupDetails || [],
-        notes: finalStudent.notes || '',
-        isActive: finalStudent.isActive !== undefined ? finalStudent.isActive : true,
-        createdAt: finalStudent.createdAt || new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
-    } catch (err) {
+      await setDoc(ref, payload, { merge: true });
+    } catch (err: any) {
       console.warn('Firestore saveStudent error:', err);
+      if (err?.code === 'permission-denied' && targetSchoolId !== 'school_dublin_east') {
+        try {
+          const rootRef = doc(firestore, 'students', finalStudent.id);
+          await setDoc(rootRef, payload, { merge: true });
+        } catch (e2) {
+          console.warn('Fallback root saveStudent notice:', e2);
+        }
+      }
     }
   },
 
@@ -656,8 +809,15 @@ export const db = {
     try {
       const targetCollection = getCollectionName('students', targetSchoolId);
       await deleteDoc(doc(firestore, targetCollection, id));
-    } catch (err) {
+    } catch (err: any) {
       console.warn('Firestore deleteStudent error:', err);
+      if (err?.code === 'permission-denied' && targetSchoolId !== 'school_dublin_east') {
+        try {
+          await deleteDoc(doc(firestore, 'students', id));
+        } catch (e2) {
+          console.warn('Fallback root deleteStudent notice:', e2);
+        }
+      }
     }
   },
 
@@ -977,8 +1137,8 @@ export const db = {
   subscribeStudents: (callback: (students: Student[]) => void, schoolId?: string) => {
     const targetSchoolId = schoolId || getActiveSchoolId();
     if (isLocalOffline) {
-      callback(db.getStudents(targetSchoolId));
-      const handler = () => callback(db.getStudents(targetSchoolId));
+      callback(deduplicateStudents(db.getStudents(targetSchoolId)));
+      const handler = () => callback(deduplicateStudents(db.getStudents(targetSchoolId)));
       localDbEmitter.addEventListener('students', handler);
       return () => localDbEmitter.removeEventListener('students', handler);
     }
@@ -986,7 +1146,9 @@ export const db = {
     try {
       const collectionName = getCollectionName('students', targetSchoolId);
       const q = collection(firestore, collectionName);
-      return onSnapshot(q, (snapshot) => {
+      let rootUnsub: (() => void) | null = null;
+
+      const mainUnsub = onSnapshot(q, (snapshot) => {
         if (!snapshot.empty) {
           const list: Student[] = [];
           snapshot.forEach(docSnap => {
@@ -1017,20 +1179,73 @@ export const db = {
               updatedAt: data.updatedAt
             });
           });
+          const dedupedList = deduplicateStudents(list);
           const otherSchools = cachedStudents.filter(s => s.schoolId && s.schoolId !== targetSchoolId);
-          cachedStudents = [...otherSchools, ...list];
+          cachedStudents = deduplicateStudents([...otherSchools, ...dedupedList]);
           localStorage.setItem(STUDENTS_KEY, JSON.stringify(cachedStudents));
-          callback(list);
+          callback(dedupedList);
         } else {
-          callback(db.getStudents(targetSchoolId));
+          callback(deduplicateStudents(db.getStudents(targetSchoolId)));
         }
       }, (err) => {
         console.warn('Students onSnapshot error:', err);
-        callback(db.getStudents(targetSchoolId));
+        // Fallback: If regional collection is denied or fails, subscribe to root collection filtered by schoolId
+        if (targetSchoolId !== 'school_dublin_east') {
+          try {
+            const rootQ = query(collection(firestore, 'students'), where('schoolId', '==', targetSchoolId));
+            rootUnsub = onSnapshot(rootQ, (rootSnap) => {
+              const list: Student[] = [];
+              rootSnap.forEach(docSnap => {
+                const data = docSnap.data();
+                const pPhone = data.parentPhone || data.parent?.phone || '';
+                const pPhone2 = data.parentPhone2 || data.parent?.phone2 || '';
+                list.push({
+                  id: data.id || docSnap.id,
+                  schoolId: data.schoolId || targetSchoolId,
+                  name: data.name || data.fullName || '',
+                  fullName: data.fullName || data.name || '',
+                  gradeLevel: data.gradeLevel || '',
+                  parent: data.parent || { 
+                    name: data.parentName || '', 
+                    phone: pPhone, 
+                    phone2: pPhone2, 
+                    email: data.parentEmail || '' 
+                  },
+                  parentName: data.parentName || data.parent?.name || '',
+                  parentPhone: pPhone,
+                  parentPhone2: pPhone2,
+                  parentEmail: data.parentEmail || data.parent?.email || '',
+                  authorizedPickups: data.authorizedPickups || [],
+                  authorizedPickupDetails: data.authorizedPickupDetails || [],
+                  notes: data.notes || '',
+                  isActive: data.isActive !== undefined ? data.isActive : true,
+                  createdAt: data.createdAt,
+                  updatedAt: data.updatedAt
+                });
+              });
+              const dedupedList = deduplicateStudents(list.length > 0 ? list : db.getStudents(targetSchoolId));
+              const otherSchools = cachedStudents.filter(s => s.schoolId && s.schoolId !== targetSchoolId);
+              cachedStudents = deduplicateStudents([...otherSchools, ...dedupedList]);
+              localStorage.setItem(STUDENTS_KEY, JSON.stringify(cachedStudents));
+              callback(dedupedList);
+            }, () => {
+              callback(deduplicateStudents(db.getStudents(targetSchoolId)));
+            });
+          } catch {
+            callback(deduplicateStudents(db.getStudents(targetSchoolId)));
+          }
+        } else {
+          callback(deduplicateStudents(db.getStudents(targetSchoolId)));
+        }
       });
+
+      return () => {
+        mainUnsub();
+        if (rootUnsub) rootUnsub();
+      };
     } catch (e) {
       console.warn('Students subscribe failed:', e);
-      callback(db.getStudents(targetSchoolId));
+      callback(deduplicateStudents(db.getStudents(targetSchoolId)));
       return () => {};
     }
   },
