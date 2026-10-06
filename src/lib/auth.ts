@@ -12,7 +12,7 @@ import {
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, firestore } from './firebase';
 import { User, Role } from '../types';
-import { db, isUserDeleted } from './db';
+import { db, isUserDeleted, DUBLIN_EAST_ID } from './db';
 
 export interface ConfiguredAccount {
   username: string;
@@ -262,6 +262,10 @@ export async function signInWithEmail(usernameOrEmail: string, password: string)
 // Auto-provision configured default accounts in Firebase Auth and Firestore if possible
 export async function autoProvisionConfiguredAccounts(): Promise<void> {
   for (const acc of CONFIGURED_ACCOUNTS) {
+    // On main (Dublin East portal), never provision or mutate accounts for other campuses
+    if (acc.schoolId && acc.schoolId !== DUBLIN_EAST_ID && acc.role !== 'super_admin') {
+      continue;
+    }
     if (isUserDeleted(acc.username) || isUserDeleted(acc.email)) {
       continue;
     }
