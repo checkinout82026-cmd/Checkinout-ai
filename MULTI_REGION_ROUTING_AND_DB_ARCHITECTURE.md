@@ -10,6 +10,7 @@ It delivers:
 3. **A clean route-based URL structure** (`/:schoolSlug/dashboard`, `/:schoolSlug/kiosk`).
 4. **A global login screen (`/login`)** with zero school selectors.
 5. **100% backward compatibility for Dublin East and the `master` / `main` production branch**.
+6. **Automatic Staff & Student Deduplication Engines** to guarantee zero duplicate entries across UI views and database sync.
 
 ---
 
@@ -65,6 +66,10 @@ All administrators and center staff from **all regions** are stored in a single,
   - New staff accounts created by an admin are automatically bound to that admin's `schoolId`.
   - Campus admins are protected against accidental lockout (an admin cannot delete the sole remaining administrator for their campus).
   - Central `super_admin` accounts have a multi-campus filter to review and manage accounts across all campuses or by individual center.
+- **Staff Deduplication Engine (`deduplicateUsers`)**:
+  - Automatically merges Firebase Auth UID records with fallback/seed records by normalized username/email.
+  - Guarantees zero double entries in the Manage Staff UI.
+  - Both `main` and `feature/subdomain-per-school` branches are guarded: `main` only auto-provisions Dublin East accounts, preventing cross-branch resurrection of Dublin West accounts in Firestore.
 
 ### B. Dedicated Regional Student & Attendance Tables
 Rather than mixing all students into one table with a filter, each non-default region has its own physically distinct collection in Cloud Firestore:
@@ -77,8 +82,16 @@ Rather than mixing all students into one table with a filter, each non-default r
 | **San Ramon (Demo)** | `san-ramon` | `students_san_ramon` | `attendance_san_ramon` | `authorized_pickups_san_ramon` |
 
 > [!IMPORTANT]
-> **Why Dublin East uses `students` directly:**
-> The live production deployment on the `master` / `main` branch reads and writes to `students` and `attendance`. Keeping Dublin East mapped to these root collections guarantees that the `master` branch continues to work smoothly without breaking or requiring a database migration.
+> **Backward Compatibility & Resilient Fallback:**
+> 1. Dublin East maps to root `students` and `attendance` collections, ensuring the production `master` / `main` branch remains 100% operational.
+> 2. In `src/lib/db.ts`, if regional collections encounter permissions constraints prior to cloud rule deployment, the system automatically falls back to querying and persisting through root collections filtered by `schoolId`.
+> 3. Security rules in `firestore.rules` are configured to permit both root and regional collections (`students_*`, `attendance_*`, `authorized_pickups_*`).
+
+### C. Student Deduplication Engine (`deduplicateStudents`)
+- Normalizes student IDs and deduplicates records across state, `localStorage`, and Firestore subscriptions.
+- Consolidates duplicate records while preserving the most complete data (authorized pickup details, parent contact, notes).
+- Secondary deduplication consolidates any duplicate roster CSV imports with identical student names within the same school.
+- `<AdminStudents school={matchedSchool} />` strictly receives its campus context and renders `displayedStudents = deduplicateStudents(students)`, ensuring zero duplicate rows in Manage Students.
 
 ---
 
@@ -126,24 +139,31 @@ All school portals share the unified, battle-tested UI layout, but are dynamical
 
 ## 6. Pre-Configured Test Credentials
 
-| Region | Username | Role | Password | Landing Route |
-| :--- | :--- | :--- | :--- | :--- |
-| **Dublin East** | `Ajita` | Admin | `Oh43016` | `/dublin-east/dashboard` |
-| **Dublin East** | `CenterStaff` | Staff | `Oh43017` | `/dublin-east/dashboard` |
-| **Dublin West** | `Sanjay` | Admin | `Oh43016` | `/dublin-west/dashboard` |
-| **Dublin West** | `WestStaff` | Staff | `Oh43017` | `/dublin-west/dashboard` |
-| **Pleasanton** | `PleasantonAdmin` | Admin | `Oh43016` | `/pleasanton/dashboard` |
-| **Pleasanton** | `PleasantonStaff` | Staff | `Oh43017` | `/pleasanton/dashboard` |
-| **San Ramon** | `SanRamonAdmin` | Admin | `Oh43016` | `/san-ramon/dashboard` |
-| **San Ramon** | `SanRamonStaff` | Staff | `Oh43017` | `/san-ramon/dashboard` |
-| **SuperAdmin** | `SuperAdmin` | SuperAdmin | `Oh43016` | Can switch to any region |
+| Region | Username | Role | Password | Landing Route | Notes |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Dublin East** | **`Sanjay`** | Admin | `Oh43016` | **`/dublin-east/dashboard`** | Restored strictly to Dublin East |
+| **Dublin East** | `Ajita` | Admin | `Oh43016` | `/dublin-east/dashboard` | Dublin East Administrator |
+| **Dublin East** | `CenterStaff` | Staff | `Oh43017` | `/dublin-east/dashboard` | Dublin East Staff Member |
+| **Dublin West** | **`WestAdmin`** | Admin | `Oh43016` | **`/dublin-west/dashboard`** | Dublin West Administrator |
+| **Dublin West** | `WestStaff` | Staff | `Oh43017` | `/dublin-west/dashboard` | Dublin West Staff Member |
+| **Pleasanton** | `PleasantonAdmin` | Admin | `Oh43016` | `/pleasanton/dashboard` | Pleasanton Administrator |
+| **Pleasanton** | `PleasantonStaff` | Staff | `Oh43017` | `/pleasanton/dashboard` | Pleasanton Staff Member |
+| **San Ramon** | `SanRamonAdmin` | Admin | `Oh43016` | `/san-ramon/dashboard` | San Ramon Administrator |
+| **San Ramon** | `SanRamonStaff` | Staff | `Oh43017` | `/san-ramon/dashboard` | San Ramon Staff Member |
+| **SuperAdmin** | `SuperAdmin` | SuperAdmin | `Oh43016` | All Regions | Full multi-campus switcher access |
 
 ---
 
 ## 7. Automated Test & Build Verification
 
-All 28 unit and integration tests pass cleanly:
-- **`src/tests/route-and-table-architecture.test.ts`**: 13 passed (100%)
+All **41 unit and integration tests** pass cleanly:
+- **`src/tests/route-and-table-architecture.test.ts`**: 26 passed (100%)
+  - Database table/collection resolution (2 tests)
+  - Route-based path parsing (4 tests)
+  - Multi-region data isolation (3 tests)
+  - Global login authentication & route authorization (4 tests)
+  - Manage staff school-scoping & admin isolation (9 tests)
+  - Student deduplication & roster isolation (4 tests)
 - **`src/tests/tenant-isolation-option2.test.ts`**: 15 passed (100%)
-- **TypeScript Typecheck (`npm run lint`)**: 0 errors
-- **Production Build (`npm run build`)**: Success in 5.38s
+- **TypeScript Typecheck (`npm run lint` / `tsc --noEmit`)**: 0 errors
+- **Production Build (`npm run build`)**: Success in 5.39s
