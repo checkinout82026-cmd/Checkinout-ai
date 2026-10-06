@@ -51,6 +51,36 @@ export function markUserDeleted(id: string, username?: string): void {
   }
 }
 
+export function deduplicateUsers(users: User[]): User[] {
+  const map = new Map<string, User>();
+  for (const u of users) {
+    if (!u) continue;
+    const key = (u.username || u.email || u.id || '').toLowerCase().trim();
+    if (!key) continue;
+
+    const existing = map.get(key);
+    if (!existing) {
+      map.set(key, u);
+    } else {
+      // Favor genuine Firebase Auth UID over fallback prefixed ID
+      const isExistingFallback = existing.id.startsWith('admin_') || existing.id.startsWith('staff_');
+      const isCurrentFallback = u.id.startsWith('admin_') || u.id.startsWith('staff_');
+
+      if (isExistingFallback && !isCurrentFallback) {
+        map.set(key, { ...u, schoolId: u.schoolId || existing.schoolId });
+      } else if (!isExistingFallback && isCurrentFallback) {
+        if (!existing.schoolId && u.schoolId) {
+          existing.schoolId = u.schoolId;
+        }
+      } else {
+        if (!existing.schoolId && u.schoolId) {
+          map.set(key, u);
+        }
+      }
+    }
+  }
+  return Array.from(map.values());
+}
 
 export const DUBLIN_EAST_ID = 'school_dublin_east';
 
@@ -113,11 +143,18 @@ export const db = {
       try {
         const parsed = JSON.parse(data);
         if (Array.isArray(parsed)) {
-          cachedUsers = parsed.map(({ password, ...rest }: any) => rest as User);
+          const loaded = parsed.map(({ password, ...rest }: any) => rest as User);
+          const combined = [...defaultUsers, ...loaded];
+          cachedUsers = deduplicateUsers(combined).filter(u => !isUserDeleted(u.id) && !isUserDeleted(u.username));
+        } else {
+          cachedUsers = deduplicateUsers(defaultUsers).filter(u => !isUserDeleted(u.id) && !isUserDeleted(u.username));
         }
       } catch (e) {
         console.error('Error parsing cached users', e);
+        cachedUsers = deduplicateUsers(defaultUsers).filter(u => !isUserDeleted(u.id) && !isUserDeleted(u.username));
       }
+    } else {
+      cachedUsers = deduplicateUsers(defaultUsers).filter(u => !isUserDeleted(u.id) && !isUserDeleted(u.username));
     }
     return cachedUsers;
   },
@@ -167,9 +204,8 @@ export const db = {
         }
       });
 
-      const nextUsers = list.length > 0 
-        ? list 
-        : defaultUsers.filter(u => !isUserDeleted(u.id) && !isUserDeleted(u.username));
+      const nextUsers = deduplicateUsers(list.length > 0 ? list : defaultUsers)
+        .filter(u => !isUserDeleted(u.id) && !isUserDeleted(u.username));
       cachedUsers = nextUsers;
       localStorage.setItem(USERS_KEY, JSON.stringify(nextUsers));
       return nextUsers;
@@ -676,11 +712,12 @@ export const db = {
             }
           });
 
-          cachedUsers = list;
-          localStorage.setItem(USERS_KEY, JSON.stringify(list));
-          callback(list);
+          const deduplicated = deduplicateUsers(list);
+          cachedUsers = deduplicated;
+          localStorage.setItem(USERS_KEY, JSON.stringify(deduplicated));
+          callback(deduplicated);
         } else {
-          const activeDefaults = defaultUsers.filter(u => !isUserDeleted(u.id) && !isUserDeleted(u.username));
+          const activeDefaults = deduplicateUsers(defaultUsers).filter(u => !isUserDeleted(u.id) && !isUserDeleted(u.username));
           callback(activeDefaults);
         }
       }, (err) => {
@@ -857,13 +894,24 @@ export const db = {
         }
       }
 
-      // Ensure configured accounts exist in Firestore if not deleted
+      // Ensure configured accounts exist in Firestore if not deleted,
+      // but DO NOT write duplicate fallback docs if user already exists under a Firebase Auth UID
       for (const defUser of defaultUsers) {
         if (!isUserDeleted(defUser.id) && !isUserDeleted(defUser.username)) {
-          try {
-            await setDoc(doc(firestore, 'users', defUser.id), defUser, { merge: true });
-          } catch (e) {
-            console.warn('Default user set notice:', e);
+          const alreadyExists = usersSnap.docs.some(d => {
+            const data = d.data();
+            return (
+              d.id === defUser.id ||
+              data.username?.toLowerCase() === defUser.username?.toLowerCase() ||
+              data.email?.toLowerCase() === defUser.email?.toLowerCase()
+            );
+          });
+          if (!alreadyExists) {
+            try {
+              await setDoc(doc(firestore, 'users', defUser.id), defUser, { merge: true });
+            } catch (e) {
+              console.warn('Default user set notice:', e);
+            }
           }
         }
       }
